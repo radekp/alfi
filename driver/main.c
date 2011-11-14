@@ -36,11 +36,91 @@ int getkey() {
 int shift = 0;
 int speed = 5000;
 
-void output(int val)
+void output(char *vals)
 {
     //printf("%d\n", val);
-    outb(val, BASEPORT);
-    usleep(speed);
+    while(*vals)
+    {
+        outb(*vals, BASEPORT);
+        usleep(speed);
+        vals++;
+    }
+}
+
+//
+//      16                  8 
+//   64    32          128      2
+//      4                   1
+//
+void oneUp()
+{
+    char upData[] = {3,2,10,8,136,128,129,1,0}; 
+    output(upData);
+}
+
+void oneDown()
+{
+    char downData[] = {129,128,136,8,10,2,3,1,0};
+    output(downData);
+}
+
+void oneLeft()
+{
+    char leftData[] = {36,32,48,16,80,64,68,4,0};
+    output(leftData);
+}
+
+void oneRight()
+{
+    char rightData[] = {68,64,80,16,48,32,36,4,0};
+    output(rightData);
+}
+
+// Alfi binary protocol:
+// byte no:
+//
+// 0 - scale
+// 1..x - commands
+//
+// Alfi binary commands
+//
+// 0 - write 0 to lpt and stop print
+// 1..8 - directions:
+//
+//   8 1 2
+//   7   3
+//   6 5 4
+void outData(char *data)
+{
+    int i;
+    int scale = *data;
+    printf("scale=%d\n", scale);
+    *data++;
+    for(;;)
+    {
+        for(i = 0; i < scale; i++)
+        {
+            switch(*data)
+            {
+                case 1:
+                    oneUp();
+                    break;
+                case 3:
+                    oneRight();
+                    break;
+                case 5:
+                    oneDown();
+                    break;
+                case 7:
+                    oneLeft();
+                    break;
+                default:
+                    outb(0, BASEPORT);
+                    return;
+            }
+        }
+        data++;
+    }
 }
 
 #include "data.txt"
@@ -67,64 +147,25 @@ int main()
         if (key == 0x1B || key == 0x04) {
             break;
         }
-        
-        //      16                  8 
-        //   64    32          128      2
-        //      4                   1
-        
         if(key == 'a')
         {
-            output(36);
-            output(32);
-            output(48);
-            output(16);
-            output(80);
-            output(64);
-            output(68);
-            output(4);
+            oneLeft();
         }
         else if(key == 'd')
         {
-            output(68);
-            output(64);
-            output(80);
-            output(16);
-            output(48);
-            output(32);
-            output(36);
-            output(4);
+            oneRight();
         }
         else if(key == 'w')
         {
-            output(3);
-            output(2);
-            output(10);
-            output(8);
-            output(136);
-            output(128);
-            output(129);
-            output(1);
+            oneUp();
         }
         else if(key == 's')
         {
-            output(129);
-            output(128);
-            output(136);
-            output(8);
-            output(10);
-            output(2);
-            output(3);
-            output(1);
+            oneDown();
         }
         else if(key == 'p')
         {
-            unsigned char *ch = prn;
-            while(*ch)
-            {
-                output(*ch);
-                ch++;
-            }
-            output(0);
+            outData(prn);
         }
         else if(key == 'z')
         {
@@ -136,7 +177,7 @@ int main()
             speed += 100;
             printf("speed %d\n", speed);
         }
-        output(0);
+        outb(0, BASEPORT);
     }
     
     fcntl(0, F_SETFL, lpFlags);

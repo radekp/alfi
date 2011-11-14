@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     QFile::remove(outFile.fileName());
     outFile.open(QFile::WriteOnly);
-    outFile.write("char prn[] = {");
+    outFile.write("char prn[] = {8,");       // scale 8
 
     nextImg();
 }
@@ -175,65 +175,59 @@ void MainWindow::on_bImg_clicked()
 
 void oneUp()
 {
-    outFile.write("3,2,10,8,136,128,129,1,");
+    outFile.write("1,");
 }
 
 void oneDown()
 {
-    outFile.write("129,128,136,8,10,2,3,1,");
+    outFile.write("5,");
 }
 
 void oneLeft()
 {
-    outFile.write("36,32,48,16,80,64,68,4,");
+    outFile.write("7,");
 }
 
 void oneRight()
 {
-    outFile.write("68,64,80,16,48,32,36,4,");
+    outFile.write("3,");
 }
 
-void up(int times, int sleep)
+void up(int times)
 {
     for(int i = 0; i < times; i++)
     {
         oneUp();
-        Sleeper::msleep(sleep);
     }
 }
 
-void down(int times, int sleep)
+void down(int times)
 {
     for(int i = 0; i < times; i++)
     {
         oneDown();
-        Sleeper::msleep(sleep);
     }
 }
 
-void left(int times, int sleep)
+void left(int times)
 {
     for(int i = 0; i < times; i++)
     {
         oneLeft();
-        Sleeper::msleep(sleep);
     }
 }
 
-void right(int times, int sleep)
+void right(int times)
 {
     for(int i = 0; i < times; i++)
     {
         oneRight();
-        Sleeper::msleep(sleep);
     }
 }
 
 void MainWindow::on_bPrintDotted_clicked()
 {
-    int sleep = 0;
-    int scale = 4;
-    int doth = scale * 4;
+    int doth = 2;
 
     for(int y = 0; y < img.height(); y++)
     {
@@ -243,10 +237,8 @@ void MainWindow::on_bPrintDotted_clicked()
             int grey = qGray(px);
             if(grey < 128)
             {
-                Sleeper::msleep(sleep);
-                up(doth, sleep);
-                down(doth, sleep);
-                Sleeper::msleep(sleep);
+                up(doth);
+                down(doth);
                 printf("x");
             }
             else
@@ -255,12 +247,13 @@ void MainWindow::on_bPrintDotted_clicked()
             }
             if(x < img.width() - 1)
             {
-                right(scale, sleep);
+                oneRight();
             }
         }
         printf("\n");
-        down(scale, sleep);
-        //left(scale * img.width(), sleep);
+        fflush(stdout);
+        oneDown();
+        //left(img.width());
 
         y++;
         if(y >= img.height())
@@ -274,25 +267,20 @@ void MainWindow::on_bPrintDotted_clicked()
             int grey = qGray(px);
             if(grey < 128)
             {
-                Sleeper::msleep(sleep);
-                up(doth, sleep);
-                down(doth, sleep);
-                Sleeper::msleep(sleep);
+                up(doth);
+                down(doth);
             }
             if(x > 0)
             {
-                left(scale, sleep);
+                oneLeft();
             }
         }
-        down(scale, sleep);
+        oneDown();
     }
 }
 
 void MainWindow::on_bPrintDraw_clicked()
 {
-    int sleep = 0;
-    int scale = 4;
-
     int x = 0;
     int y = 0;
     int nx, ny;
@@ -309,22 +297,22 @@ void MainWindow::on_bPrintDraw_clicked()
         while(dx > 0)
         {
             dx--;
-            right(scale, sleep);
+            oneRight();
         }
         while(dx < 0)
         {
             dx++;
-            left(scale, sleep);
+            oneLeft();
         }
         while(dy > 0)
         {
             dy--;
-            down(scale, sleep);
+            oneDown();
         }
         while(dy < 0)
         {
             dy++;
-            up(scale, sleep);
+            oneUp();
         }
         x = nx;
         y = ny;
