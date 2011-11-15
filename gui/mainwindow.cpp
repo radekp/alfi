@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     QFile::remove(outFile.fileName());
     outFile.open(QFile::WriteOnly);
-    outFile.write("char prn[] = {8,");       // scale 8
+    outFile.write("char prn[] = {4,");       // scale 4
 
     nextImg();
 }
@@ -229,7 +229,7 @@ void MainWindow::on_bPrintDotted_clicked()
 {
     int doth = 2;
 
-    for(int y = 0; y < img.height(); y++)
+    for(int y = 0;;)
     {
         for(int x = 0; x < img.width(); x++)
         {
@@ -239,24 +239,26 @@ void MainWindow::on_bPrintDotted_clicked()
             {
                 up(doth);
                 down(doth);
-                printf("x");
             }
-            else
+
+            px = img.pixel(x, y + 1);
+            grey = qGray(px);
+            if(grey < 128)
             {
-                printf(" ");
+                down(doth);
+                up(doth);
             }
+
             if(x < img.width() - 1)
             {
                 oneRight();
             }
         }
-        printf("\n");
-        fflush(stdout);
-        oneDown();
+        down(2);
         //left(img.width());
 
-        y++;
-        if(y >= img.height())
+        y += 2;
+        if(y + 1 >= img.height())
         {
             break;
         }
@@ -270,12 +272,27 @@ void MainWindow::on_bPrintDotted_clicked()
                 up(doth);
                 down(doth);
             }
+
+            px = img.pixel(x, y + 1);
+            grey = qGray(px);
+            if(grey < 128)
+            {
+                down(doth);
+                up(doth);
+            }
+
             if(x > 0)
             {
                 oneLeft();
             }
         }
-        oneDown();
+
+        y += 2;
+        if(y + 1 >= img.height())
+        {
+            break;
+        }
+        down(2);
     }
 }
 
