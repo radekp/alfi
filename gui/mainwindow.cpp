@@ -35,6 +35,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     imgFile = QString::null;
 
+    penX = penY = 0;
+
     QFile::remove(outFile.fileName());
     outFile.open(QFile::WriteOnly);
     outFile.write("char prn[] = {3,");       // scale 3
@@ -57,8 +59,8 @@ void MainWindow::paintEvent(QPaintEvent *)
         return;
     }
     p.drawImage(0, 200, img);
-    p.drawImage(img.width(), 200, prt);
-    p.drawImage(img.width(), 400, prn);
+    //p.drawImage(img.width(), 200, prt);
+    p.drawImage(img.width(), 200, prn);
 }
 
 uchar getSetPixel(QImage & img, int x, int y, bool get, uchar val)
@@ -140,8 +142,8 @@ static void MkPrnImg(QImage &img, int width, int height)
     img = QImage(width, height, QImage::Format_Indexed8);
 
     img.setNumColors(2);
-    img.setColor(0, qRgb(0, 0, 0));
-    img.setColor(1, qRgb(255, 255, 255));
+    img.setColor(0, qRgb(255, 255, 255));
+    img.setColor(1, qRgb(0, 0, 0));
 
     uchar *bits = img.bits();
     memset(bits, 0, width * height);
@@ -203,28 +205,43 @@ void MainWindow::on_bImg_clicked()
     nextImg();
 }
 
-void oneUp()
+void MainWindow::oneUp()
 {
     outFile.write("1,");
 
+    setPixel(prn, penX, penY, 1);
+    penY--;
+    setPixel(prn, penX, penY, 1);
 }
 
-void oneDown()
+void MainWindow::oneDown()
 {
     outFile.write("5,");
+
+    setPixel(prn, penX, penY, 1);
+    penY++;
+    setPixel(prn, penX, penY, 1);
 }
 
-void oneLeft()
+void MainWindow::oneLeft()
 {
     outFile.write("7,");
+
+    setPixel(prn, penX, penY, 1);
+    penX--;
+    setPixel(prn, penX, penY, 1);
 }
 
-void oneRight()
+void MainWindow::oneRight()
 {
     outFile.write("3,");
+
+    setPixel(prn, penX, penY, 1);
+    penX++;
+    setPixel(prn, penX, penY, 1);
 }
 
-void up(int times)
+void MainWindow::up(int times)
 {
     for(int i = 0; i < times; i++)
     {
@@ -232,7 +249,7 @@ void up(int times)
     }
 }
 
-void down(int times)
+void MainWindow::down(int times)
 {
     for(int i = 0; i < times; i++)
     {
@@ -240,7 +257,7 @@ void down(int times)
     }
 }
 
-void left(int times)
+void MainWindow::left(int times)
 {
     for(int i = 0; i < times; i++)
     {
@@ -248,7 +265,7 @@ void left(int times)
     }
 }
 
-void right(int times)
+void MainWindow::right(int times)
 {
     for(int i = 0; i < times; i++)
     {

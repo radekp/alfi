@@ -46,9 +46,19 @@ private:
     QImage prt;
     QImage prn;
     QString imgFile;
+    int penX;
+    int penY;
     void handleArrowClick(Direction);
     void loadImg();
     void nextImg();
+    void oneUp();
+    void oneDown();
+    void oneLeft();
+    void oneRight();
+    void up(int times);
+    void down(int times);
+    void left(int times);
+    void right(int times);
 
 private slots:
     void on_bPrintDraw_clicked();
