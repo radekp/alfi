@@ -25,6 +25,9 @@
 
 #define BASEPORT 0x378 /* lp1 */
 
+#define PRN_WIDTH 511
+#define PRN_HEIGHT 511
+
 int shift = 0;
 
 QFile outFile("../driver/data.txt");
@@ -59,14 +62,19 @@ void MainWindow::paintEvent(QPaintEvent *)
         return;
     }
     p.drawImage(0, 200, img);
-    //p.drawImage(img.width(), 200, prt);
-    p.drawImage(img.width(), 200, prn);
+    p.drawImage(img.width(), 200, prt);
+    p.drawImage(img.width() + PRN_WIDTH, 200, prn);
 }
 
-uchar getSetPixel(QImage & img, int x, int y, bool get, uchar val)
+void redraw(MainWindow *win)
 {
-    uchar *bits = img.bits();
-    int index = y * (img.width() + 1) + x;
+    win->update();
+    QApplication::processEvents();
+}
+
+uchar getSetPixel(uchar *bits, int x, int y, bool get, uchar val)
+{
+    int index = y * (PRN_WIDTH + 1) + x;
     if(get)
     {
         return bits[index];
@@ -75,17 +83,109 @@ uchar getSetPixel(QImage & img, int x, int y, bool get, uchar val)
     return 0;
 }
 
-uchar getPixel(QImage & img, int x, int y)
+uchar getPixel(uchar *bits, int x, int y)
 {
-    return getSetPixel(img, x, y, true, 0);
+    return getSetPixel(bits, x, y, true, 0);
 }
 
-void setPixel(QImage & img, int x, int y, uchar val)
+void setPixel(uchar *bits, int x, int y, uchar val)
 {
-    getSetPixel(img, x, y, false, val);
+    getSetPixel(bits, x, y, false, val);
 }
 
-bool findNearest(int x, int y, QImage & img, QImage & prt, int *nx, int *ny)
+int populateRegion(uchar *bits, int x, int y, QList<QPoint> & region)
+{
+    if(x < 0 || x >= PRN_WIDTH || y < 0 || y >= PRN_HEIGHT || getPixel(bits, x, y) == 0)
+    {
+        return 0;
+    }
+    int around =
+            populateRegion(bits, x - 1, y - 1, region) +
+            populateRegion(bits, x, y - 1, region) +
+            populateRegion(bits, x + 1, y - 1, region) +
+            populateRegion(bits, x + 1, y, region) +
+            populateRegion(bits, x + 1, y + 1, region) +
+            populateRegion(bits, x, y + 1, region) +
+            populateRegion(bits, x - 1, y + 1, region) +
+            populateRegion(bits, x - 1, y, region);
+
+    QPoint p(x, y);
+    if(around == 8)
+    {
+        region.append(p);           // inner points last
+    }
+    else
+    {
+        region.insert(0, p);        // border points first
+    }
+    setPixel(bits, x, y, 0);
+    return 1;
+}
+
+bool findRegion(uchar *bits, QList< QList<QPoint> > & regionList)
+{
+    QList<QPoint> region;
+
+    // Find first black point
+    int x = 0;
+    int y = 0;
+    for(;;)
+    {
+        if(getPixel(bits, x, y))
+        {
+            break;
+        }
+        x++;
+        if(x < PRN_WIDTH)
+        {
+            continue;
+        }
+        x = 0;
+        y++;
+        if(y >= PRN_HEIGHT)
+        {
+            qDebug() << "all regions found";
+            return false;   // no more black pixels - we are done
+        }
+    }
+
+    qDebug() << "populating region at " << x << "x" << y;
+    populateRegion(bits, x, y, region);
+    regionList.append(region);
+
+    return true;
+}
+
+void fillImage(QImage & src, uchar *bits)
+{
+    for(int x = 0; x < src.width(); x++)
+    {
+        for(int y = 0; y < src.height(); y++)
+        {
+            QRgb pix = src.pixel(x, y);
+            int grey = qGray(pix);
+            setPixel(bits, x, y, grey > 127);
+        }
+    }
+}
+
+void niceDraw(QImage & src, uchar *bits, MainWindow * win)
+{
+    fillImage(src, bits);
+
+    QList< QList<QPoint> > regionList;
+    for(;;)
+    {
+        qDebug() << "findRegion";
+        if(!findRegion(bits, regionList))
+        {
+            break;
+        }
+        redraw(win);
+    }
+}
+
+bool findNearest(int x, int y, QImage & img, uchar *bits, int *nx, int *ny)
 {
     int imax = img.width() + img.height();
 
@@ -123,11 +223,11 @@ bool findNearest(int x, int y, QImage & img, QImage & prt, int *nx, int *ny)
                 {
                     continue;
                 }
-                if(getPixel(prt, px, py))
+                if(getPixel(bits, px, py))
                 {
                     continue;
                 }
-                setPixel(prt, px, py, 1);
+                setPixel(bits, px, py, 1);
                 *nx = px;
                 *ny = py;
                 return true;
@@ -137,7 +237,7 @@ bool findNearest(int x, int y, QImage & img, QImage & prt, int *nx, int *ny)
     return false;
 }
 
-static void MkPrnImg(QImage &img, int width, int height)
+static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 {
     img = QImage(width, height, QImage::Format_Indexed8);
 
@@ -145,9 +245,8 @@ static void MkPrnImg(QImage &img, int width, int height)
     img.setColor(0, qRgb(255, 255, 255));
     img.setColor(1, qRgb(0, 0, 0));
 
-    uchar *bits = img.bits();
+    uchar *bits = *imgBits = img.bits();
     memset(bits, 0, width * height);
-    bits[0] = 1;
 }
 
 void MainWindow::loadImg()
@@ -160,8 +259,8 @@ void MainWindow::loadImg()
 
     qDebug() << "img size=" << img.width() << "x" << img.height();
 
-    MkPrnImg(prt, 511, 511);
-    MkPrnImg(prn, 511, 511);
+    MkPrnImg(prt, PRN_WIDTH, PRN_HEIGHT, &prtBits);
+    MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
     update();
 }
 
@@ -209,36 +308,36 @@ void MainWindow::oneUp()
 {
     outFile.write("1,");
 
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
     penY--;
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
 }
 
 void MainWindow::oneDown()
 {
     outFile.write("5,");
 
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
     penY++;
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
 }
 
 void MainWindow::oneLeft()
 {
     outFile.write("7,");
 
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
     penX--;
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
 }
 
 void MainWindow::oneRight()
 {
     outFile.write("3,");
 
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
     penX++;
-    setPixel(prn, penX, penY, 1);
+    setPixel(prnBits, penX, penY, 1);
 }
 
 void MainWindow::up(int times)
@@ -350,7 +449,9 @@ void MainWindow::on_bPrintDraw_clicked()
     int y = 0;
     int nx, ny;
 
-    while(findNearest(x, y, img, prt, &nx, &ny))
+    setPixel(prtBits, 0, 0, 1);
+
+    while(findNearest(x, y, img, prtBits, &nx, &ny))
     {
         int dx = nx - x;
         int dy = ny - y;
@@ -385,3 +486,8 @@ void MainWindow::on_bPrintDraw_clicked()
 }
 
 
+
+void MainWindow::on_bNiceDraw_clicked()
+{
+    niceDraw(img, prtBits, this);
+}

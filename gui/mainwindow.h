@@ -45,6 +45,8 @@ private:
     QImage img;
     QImage prt;
     QImage prn;
+    uchar *prtBits;
+    uchar *prnBits;
     QString imgFile;
     int penX;
     int penY;
@@ -64,6 +66,7 @@ private slots:
     void on_bPrintDraw_clicked();
     void on_bPrintDotted_clicked();
     void on_bImg_clicked();
+    void on_bNiceDraw_clicked();
 };
 
 class Sleeper : public QThread
