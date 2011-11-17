@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     QFile::remove(outFile.fileName());
     outFile.open(QFile::WriteOnly);
-    outFile.write("char prn[] = {4,");       // scale 4
+    outFile.write("char prn[] = {3,");       // scale 3
 
     nextImg();
 }
@@ -119,15 +119,20 @@ void MainWindow::loadImg()
 {
     //QMessageBox::information(this, "info", "loading " + imgFile);
 
+    qDebug() << imgFile;
+
     img = QImage(imgFile);
-    prt = QImage(img.width(), img.height(), QImage::Format_Indexed8);
+
+    qDebug() << "img size=" << img.width() << "x" << img.height();
+
+    prt = QImage(511, 511, QImage::Format_Indexed8);
 
     prt.setNumColors(2);
     prt.setColor(0, qRgb(0, 0, 0));
     prt.setColor(1, qRgb(255, 255, 255));
 
     uchar *bits = prt.bits();
-    memset(bits, 0, (prt.width() + 1) * prt.height());
+    memset(bits, 0, 511 * 511);
     bits[0] = 1;
 
     update();

@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QDir>
 #include <QMessageBox>
+#include <QDebug>
 
 namespace Ui
 {
