@@ -44,6 +44,7 @@ private:
     int lpFlags;
     QImage img;
     QImage prt;
+    QImage prn;
     QString imgFile;
     void handleArrowClick(Direction);
     void loadImg();

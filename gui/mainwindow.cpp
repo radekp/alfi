@@ -58,11 +58,34 @@ void MainWindow::paintEvent(QPaintEvent *)
     }
     p.drawImage(0, 200, img);
     p.drawImage(img.width(), 200, prt);
+    p.drawImage(img.width(), 400, prn);
 }
 
-bool findNearest(int x, int y, QImage *img, QImage *prt, int *nx, int *ny)
+uchar getSetPixel(QImage & img, int x, int y, bool get, uchar val)
 {
-    int imax = img->width() + img->height();
+    uchar *bits = img.bits();
+    int index = y * (img.width() + 1) + x;
+    if(get)
+    {
+        return bits[index];
+    }
+    bits[index] = val;
+    return 0;
+}
+
+uchar getPixel(QImage & img, int x, int y)
+{
+    return getSetPixel(img, x, y, true, 0);
+}
+
+void setPixel(QImage & img, int x, int y, uchar val)
+{
+    getSetPixel(img, x, y, false, val);
+}
+
+bool findNearest(int x, int y, QImage & img, QImage & prt, int *nx, int *ny)
+{
+    int imax = img.width() + img.height();
 
     for(int i = 1; i < imax; i++)
     {
@@ -87,25 +110,22 @@ bool findNearest(int x, int y, QImage *img, QImage *prt, int *nx, int *ny)
                     case 7: px -= i; py -= j; break;
                 }
 
-                if(px < 0 || px >= img->width() ||
-                   py < 0 || py >= img->height())
+                if(px < 0 || px >= img.width() ||
+                   py < 0 || py >= img.height())
                 {
                     continue;
                 }
-                QRgb pix = img->pixel(px, py);
+                QRgb pix = img.pixel(px, py);
                 int grey = qGray(pix);
                 if(grey > 127)
                 {
                     continue;
                 }
-                uchar *bits = prt->bits();
-                int index = py * (prt->width() + 1) + px;
-                uchar ppix = bits[index];
-                if(ppix != 0)
+                if(getPixel(prt, px, py))
                 {
                     continue;
                 }
-                bits[index] = 1;
+                setPixel(prt, px, py, 1);
                 *nx = px;
                 *ny = py;
                 return true;
@@ -113,6 +133,19 @@ bool findNearest(int x, int y, QImage *img, QImage *prt, int *nx, int *ny)
         }
     }
     return false;
+}
+
+static void MkPrnImg(QImage &img, int width, int height)
+{
+    img = QImage(width, height, QImage::Format_Indexed8);
+
+    img.setNumColors(2);
+    img.setColor(0, qRgb(0, 0, 0));
+    img.setColor(1, qRgb(255, 255, 255));
+
+    uchar *bits = img.bits();
+    memset(bits, 0, width * height);
+    bits[0] = 1;
 }
 
 void MainWindow::loadImg()
@@ -125,16 +158,8 @@ void MainWindow::loadImg()
 
     qDebug() << "img size=" << img.width() << "x" << img.height();
 
-    prt = QImage(511, 511, QImage::Format_Indexed8);
-
-    prt.setNumColors(2);
-    prt.setColor(0, qRgb(0, 0, 0));
-    prt.setColor(1, qRgb(255, 255, 255));
-
-    uchar *bits = prt.bits();
-    memset(bits, 0, 511 * 511);
-    bits[0] = 1;
-
+    MkPrnImg(prt, 511, 511);
+    MkPrnImg(prn, 511, 511);
     update();
 }
 
@@ -181,6 +206,7 @@ void MainWindow::on_bImg_clicked()
 void oneUp()
 {
     outFile.write("1,");
+
 }
 
 void oneDown()
@@ -307,7 +333,7 @@ void MainWindow::on_bPrintDraw_clicked()
     int y = 0;
     int nx, ny;
 
-    while(findNearest(x, y, &img, &prt, &nx, &ny))
+    while(findNearest(x, y, img, prt, &nx, &ny))
     {
         int dx = nx - x;
         int dy = ny - y;
