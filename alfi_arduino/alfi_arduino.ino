@@ -3,16 +3,29 @@
 
  Alfi has 3 stepper motors connected to digital 2..13 pins
  and 3 home switches connected to A0..A2 pins
+ 
+ You can control motors and inputs through on serial port from PC.
+ The protocol is very simple, e.g this example:
+ 
+ p123 m
+ 
+ p is command, one of a,P,p,d,D,m
+ 123 is argument to command, m command has no arguments
+ argument must be followed by space
+ 
+ Our example sets target position to 123 and starts motion on
+ default axis with default speed.
 
 */
 
 int axis;       // selected axis number
 int cpos;       // absolute current position - used to compute which pin will be next
 int tpos;       // absolute target position 
-int sdelay;     // start delay - it decreases with each mottor step until it reaches tdelay
+int sdelay;     // start delay - it decreases with each motor step until it reaches tdelay
 int tdelay;     // target deleay between steps (smaller number is higher speed)
+int cdelay;
 
-char item;      // item we are currenly reading (a=axis, p=cpos, P=tpos, d=sdelay, D=tdelay, m=start motion)
+char cmd;       // command we are currenly reading (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, m=start motion)
 char b;
 char buf[9];
 int bufPos;
@@ -46,113 +59,200 @@ void setup()   {
   // initialize the serial communication
   Serial.begin(9600);
   
-  item = 0;
+  cmd = 0;
   bufPos = 0;
   axis = 0;
   cpos = 0;
   tpos = 0;  
-  sdelay = 100;
-  tdelay = 30;
+  sdelay = 50;
+  cdelay = 100;
+  tdelay = 10;
   
   Serial.println("arduino init ok");
 }
 
 void loop()                     
 {
-  byte brightness;
-  
   // check if data has been sent from the computer:
   if (Serial.available()) {
 
-    // Which item?
-    if(item == 0)
+    // read command
+    if(cmd == 0)
     {
-      item = Serial.read();
-      Serial.print("selected item: ");
-      Serial.write(item);
-      Serial.println();
+      cmd = Serial.read();
       bufPos = 0;
       return;
     }
+    
+    // start motion if command is m
+    if(cmd == 'm')
+    {
+      cdelay = sdelay;
+      return;
+    }
         
-    // Read integer value
+    // read integer argument
     b = Serial.read();
     Serial.write(b);
-    
-    if(b != ' 
-    ')
+
+    if(b != ' ' && cmd != 'm')
     {
       buf[bufPos] = b;
       bufPos++;
       return;
-    }
-    Serial.println("xxx");
-    
+    }    
     buf[bufPos] = '\0';
     val = atoi(buf);
 
-    if(item == 'a')
+    if(cmd == 'a')
     {
        axis = val;
     }
-    else if(item == 'p')
+    else if(cmd == 'p')
     {
         cpos = val;
     }
-    else if(item == 'P')
+    else if(cmd == 't')
     {
         tpos = val;
-        Serial.println("target position set");
     }
-    else if(item == 'd')
+    else if(cmd == 's')
     {
         sdelay = val;
     }    
-    else if(item == 'D')
+    else if(cmd == 'd')
     {
         tdelay = val;
     }
-    if(item == 'm')
-    {
-      Serial.println("motion start");
-      return;    // start motion
+    else {
+      Serial.println("error: unknown command");
     }
-    Serial.println("SET1");
-    item = 0;
+    cmd = 0;
     return;
   }
 
-  if(item != 'm')
+  if(cmd != 'm')
   {
-    return;
-    
+    return;    // waiting for more input on serial
   }
   
   if(cpos == tpos)
   {
-        Serial.println("SET2");
-    item = 0;    // we are done, read next command from serial
+    cmd = 0;    // we are done, read next command from serial
     return;
   }
-  
-  if(axis == 2)
+
+  // motion handling
+  if(axis == 0)
+  {
+    if(cpos < tpos)  // ->
+    {
+      digitalWrite(3, HIGH);
+      delay(cdelay);
+      digitalWrite(3, LOW);
+
+      digitalWrite(2, HIGH);
+      delay(cdelay);
+      digitalWrite(2, LOW);
+
+      digitalWrite(4, HIGH);
+      delay(cdelay);
+      digitalWrite(4, LOW);
+        
+      digitalWrite(5, HIGH);
+      delay(cdelay);
+      digitalWrite(5, LOW);
+
+      cpos++;
+    }
+    else  // <-
+    {
+      digitalWrite(4, HIGH);
+      delay(cdelay);
+      digitalWrite(4, LOW);
+
+      digitalWrite(2, HIGH);
+      delay(cdelay);
+      digitalWrite(2, LOW);
+
+      digitalWrite(3, HIGH);
+      delay(cdelay);
+      digitalWrite(3, LOW);
+        
+      digitalWrite(5, HIGH);
+      delay(cdelay);
+      digitalWrite(5, LOW);
+
+      val = analogRead(A2);    // read the input pin
+      Serial.println(val);             // debug value
+      
+      cpos--;
+    }
+  }    
+  else if(axis == 1)
+  {
+    if(cpos < tpos)
+    {
+      digitalWrite(8, HIGH);
+      delay(cdelay);
+      digitalWrite(8, LOW);
+
+      digitalWrite(7, HIGH);
+      delay(cdelay);
+      digitalWrite(7, LOW);
+
+      digitalWrite(9, HIGH);
+      delay(cdelay);
+      digitalWrite(9, LOW);
+        
+      digitalWrite(6, HIGH);
+      delay(cdelay);
+      digitalWrite(6, LOW);
+      
+      cpos++;
+    }
+    else
+    {
+      digitalWrite(9, HIGH);
+      delay(cdelay);
+      digitalWrite(9, LOW);
+
+      digitalWrite(7, HIGH);
+      delay(cdelay);
+      digitalWrite(7, LOW);
+
+      digitalWrite(8, HIGH);
+      delay(cdelay);
+      digitalWrite(8, LOW);
+        
+      digitalWrite(6, HIGH);
+      delay(cdelay);
+      digitalWrite(6, LOW);
+
+      val = analogRead(A0);    // read the input pin
+      Serial.println(val);             // debug value
+      
+      cpos--;
+    }
+  }
+  else if(axis == 2)
   {
     if(cpos < tpos)
     {
       digitalWrite(10, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(10, LOW);
     
       digitalWrite(12, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(12, LOW);
     
       digitalWrite(13, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(13, LOW);
     
       digitalWrite(11, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(11, LOW);
 
       cpos++;
@@ -160,117 +260,47 @@ void loop()
     else
     {
       digitalWrite(13, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(13, LOW);
 
       digitalWrite(12, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(12, LOW);
 
       digitalWrite(10, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(10, LOW);    
     
       digitalWrite(11, HIGH);
-      delay(tdelay);
+      delay(cdelay);
       digitalWrite(11, LOW);
+      
+      val = analogRead(A1);    // read the input pin
+      Serial.println(val);             // debug value
+      
       cpos--;
     }
+  }
+  else
+  {
+    Serial.println("error: unknown axis");
+    cmd = 0;
     return;
   }
-
-  if(axis == 1)
+  
+  // Handle acceleration/decceleration
+  int deltaX = abs(tpos - cpos);
+  int deltaD = sdelay - tdelay;
+  if(deltaX > deltaD)
   {
-    if(cpos < tpos)
+    if(cdelay > tdelay)
     {
-      digitalWrite(4, HIGH);
-      delay(tdelay);
-      digitalWrite(4, LOW);
-
-      digitalWrite(2, HIGH);
-      delay(tdelay);
-      digitalWrite(2, LOW);
-
-      digitalWrite(3, HIGH);
-      delay(tdelay);
-      digitalWrite(3, LOW);
-        
-      digitalWrite(5, HIGH);
-      delay(tdelay);
-      digitalWrite(5, LOW);
-      
-      cpos++;
+      cdelay--;  // we are far from target, we can accelerate
     }
-    else
-    {
-      digitalWrite(3, HIGH);
-      delay(tdelay);
-      digitalWrite(3, LOW);
-
-      digitalWrite(2, HIGH);
-      delay(tdelay);
-      digitalWrite(2, LOW);
-
-      digitalWrite(4, HIGH);
-      delay(tdelay);
-      digitalWrite(4, LOW);
-        
-      digitalWrite(5, HIGH);
-      delay(tdelay);
-      digitalWrite(5, LOW);
-      
-      cpos--;
-    }
-    return;
+  } 
+  else if(cdelay < sdelay)
+  {
+    cdelay++;    // we are closing to target so deccelerate
   }
-    
-  if(axis == 0)
-  {
-    if(cpos < tpos)
-    {
-      digitalWrite(9, HIGH);
-      delay(tdelay);
-      digitalWrite(9, LOW);
-
-      digitalWrite(7, HIGH);
-      delay(tdelay);
-      digitalWrite(7, LOW);
-
-      digitalWrite(8, HIGH);
-      delay(tdelay);
-      digitalWrite(8, LOW);
-        
-      digitalWrite(6, HIGH);
-      delay(tdelay);
-      digitalWrite(6, LOW);
-      
-      cpos++;
-    }
-    else
-    {
-      digitalWrite(8, HIGH);
-      delay(tdelay);
-      digitalWrite(8, LOW);
-
-      digitalWrite(7, HIGH);
-      delay(tdelay);
-      digitalWrite(7, LOW);
-
-      digitalWrite(9, HIGH);
-      delay(tdelay);
-      digitalWrite(9, LOW);
-        
-      digitalWrite(6, HIGH);
-      delay(tdelay);
-      digitalWrite(6, LOW);
-      
-      cpos--;
-    }
-    return;
-  }    
-
-    Serial.println("SET3");
-  item = 0;
-  return;
 }
 
