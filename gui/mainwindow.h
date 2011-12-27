@@ -39,7 +39,7 @@ public:
 protected:
     void paintEvent(QPaintEvent *);
 
-private:
+public:
     Ui::MainWindow *ui;
     int lpFlags;
     QImage img;

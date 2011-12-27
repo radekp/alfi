@@ -28,30 +28,36 @@
 #define PRN_WIDTH 511
 #define PRN_HEIGHT 511
 
-int shift = 0;
+QFile *outFile = NULL;
 
-QFile outFile("../driver/data.txt");
+void openOutFile(QString name)
+{
+    if(outFile) {
+        outFile->close();
+        delete outFile;
+    }
+    outFile = new QFile(name + ".txt");
+    outFile->open(QFile::WriteOnly | QFile::Truncate);
+}
+
+void closeOutFile()
+{
+    outFile->write("\n");
+    outFile->close();
+    outFile = NULL;
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
     imgFile = QString::null;
-
-    penX = penY = 0;
-
-    QFile::remove(outFile.fileName());
-    outFile.open(QFile::WriteOnly);
-    outFile.write("char prn[] = {3,");       // scale 3
-
     nextImg();
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-    outFile.write("0};");
-    outFile.close();
 }
 
 void MainWindow::paintEvent(QPaintEvent *)
@@ -93,32 +99,94 @@ void setPixel(uchar *bits, int x, int y, uchar val)
     getSetPixel(bits, x, y, false, val);
 }
 
+void MainWindow::oneUp()
+{
+    outFile->write("1");
+
+    setPixel(prnBits, penX, penY, 1);
+    penY--;
+    setPixel(prnBits, penX, penY, 1);
+}
+
+void MainWindow::oneDown()
+{
+    outFile->write("5");
+
+    setPixel(prnBits, penX, penY, 1);
+    penY++;
+    setPixel(prnBits, penX, penY, 1);
+}
+
+void MainWindow::oneLeft()
+{
+    outFile->write("7");
+
+    setPixel(prnBits, penX, penY, 1);
+    penX--;
+    setPixel(prnBits, penX, penY, 1);
+}
+
+void MainWindow::oneRight()
+{
+    outFile->write("3");
+
+    setPixel(prnBits, penX, penY, 1);
+    penX++;
+    setPixel(prnBits, penX, penY, 1);
+}
+
+void MainWindow::up(int times)
+{
+    for(int i = 0; i < times; i++)
+    {
+        oneUp();
+    }
+}
+
+void MainWindow::down(int times)
+{
+    for(int i = 0; i < times; i++)
+    {
+        oneDown();
+    }
+}
+
+void MainWindow::left(int times)
+{
+    for(int i = 0; i < times; i++)
+    {
+        oneLeft();
+    }
+}
+
+void MainWindow::right(int times)
+{
+    for(int i = 0; i < times; i++)
+    {
+        oneRight();
+    }
+}
+
 int populateRegion(uchar *bits, int x, int y, QList<QPoint> & region)
 {
     if(x < 0 || x >= PRN_WIDTH || y < 0 || y >= PRN_HEIGHT || getPixel(bits, x, y) == 0)
     {
         return 0;
     }
+    setPixel(bits, x, y, 0);
+
     int around =
-            populateRegion(bits, x - 1, y - 1, region) +
-            populateRegion(bits, x, y - 1, region) +
-            populateRegion(bits, x + 1, y - 1, region) +
             populateRegion(bits, x + 1, y, region) +
-            populateRegion(bits, x + 1, y + 1, region) +
-            populateRegion(bits, x, y + 1, region) +
-            populateRegion(bits, x - 1, y + 1, region) +
-            populateRegion(bits, x - 1, y, region);
+            populateRegion(bits, x - 1, y, region) +
+            populateRegion(bits, x, y - 1, region) +
+            populateRegion(bits, x, y + 1, region);
+//            populateRegion(bits, x - 1, y - 1, region) +
+//            populateRegion(bits, x + 1, y - 1, region) +
+//            populateRegion(bits, x + 1, y + 1, region) +
+//            populateRegion(bits, x - 1, y + 1, region);
 
     QPoint p(x, y);
-    if(around == 8)
-    {
-        region.append(p);           // inner points last
-    }
-    else
-    {
-        region.insert(0, p);        // border points first
-    }
-    setPixel(bits, x, y, 0);
+    region.append(p);
     return 1;
 }
 
@@ -158,21 +226,68 @@ bool findRegion(uchar *bits, QList< QList<QPoint> > & regionList)
 
 void fillImage(QImage & src, uchar *bits)
 {
+    memset(bits, 0, PRN_WIDTH * PRN_HEIGHT);
     for(int x = 0; x < src.width(); x++)
     {
         for(int y = 0; y < src.height(); y++)
         {
             QRgb pix = src.pixel(x, y);
             int grey = qGray(pix);
-            setPixel(bits, x, y, grey > 127);
+            setPixel(bits, x, y, grey < 127);
         }
     }
 }
 
-void niceDraw(QImage & src, uchar *bits, MainWindow * win)
+int findNearest(QList<QPoint> & region, uchar *bits, int x, int y, QPoint & nearest)
+{
+    int min = 0x7fffffff;
+    for(int i = 0; i < region.count(); i++)
+    {
+        QPoint p = region.at(i);
+        if(getPixel(bits, p.x(), p.y()))
+        {
+            continue;
+        }
+        int dx = x - p.x();
+        int dy = y - p.y();
+        int dst = dx * dx + dy * dy;
+        if(dst < min && dst > 0)
+        {
+            nearest = p;
+            min = dst;
+        }
+    }
+    return min;
+}
+
+void move(MainWindow * win, QPoint & p, QPoint & np)
+{
+    int dx = np.x() - p.x();
+    int dy = np.y() - p.y();
+    if(dx > 0)
+    {
+        win->right(dx);
+    }
+    else if(dx < 0)
+    {
+        win->left(-dx);
+    }
+    if(dy > 0)
+    {
+        win->down(dy);
+    }
+    else if(dy < 0)
+    {
+        win->up(-dy);
+    }
+}
+
+void niceDraw(QImage & src, uchar *bits, uchar *prnBits, MainWindow * win)
 {
     fillImage(src, bits);
+    redraw(win);
 
+    // Find continuous regions in image
     QList< QList<QPoint> > regionList;
     for(;;)
     {
@@ -182,6 +297,57 @@ void niceDraw(QImage & src, uchar *bits, MainWindow * win)
             break;
         }
         redraw(win);
+    }
+
+    // Find start point (nearest point to 0,0)
+    QPoint startPoint;
+    QList<QPoint> startRegion;
+    int min = 0x7fffffff;
+    for(int i = 0; i < regionList.count(); i++)
+    {
+        QList<QPoint> region = regionList.at(i);
+        QPoint point;
+        int dst = findNearest(region, prnBits, 0, 0, point);
+        if(dst < min)
+        {
+            startRegion = region;
+            startPoint = point;
+            min = dst;
+        }
+    }
+
+    QPoint p(0, 0);
+    move(win, p, startPoint);             // move to start point
+    win->down(startPoint.y());
+    redraw(win);
+
+    QList<QPoint> region = startRegion;
+    p = startPoint;
+    for(;;)
+    {
+        QPoint np;
+        while(findNearest(region, bits, p.x(), p.y(), np) == 1)     // draw all nearby points
+        {
+            setPixel(bits, p.x(), p.y(), 1);
+            setPixel(bits, np.x(), np.y(), 1);
+            move(win, p, np);
+            p = np;
+            redraw(win);
+        }
+        int i = 0;
+        for(;;)
+        {
+            if(i >= region.count())
+            {
+                i = 0;
+            }
+            if(region.at(i) == p)
+            {
+                break;
+            }
+            i++;
+        }
+        break;
     }
 }
 
@@ -259,6 +425,8 @@ void MainWindow::loadImg()
 
     qDebug() << "img size=" << img.width() << "x" << img.height();
 
+    penX = penY = 0;
+
     MkPrnImg(prt, PRN_WIDTH, PRN_HEIGHT, &prtBits);
     MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
     update();
@@ -304,78 +472,11 @@ void MainWindow::on_bImg_clicked()
     nextImg();
 }
 
-void MainWindow::oneUp()
-{
-    outFile.write("1,");
-
-    setPixel(prnBits, penX, penY, 1);
-    penY--;
-    setPixel(prnBits, penX, penY, 1);
-}
-
-void MainWindow::oneDown()
-{
-    outFile.write("5,");
-
-    setPixel(prnBits, penX, penY, 1);
-    penY++;
-    setPixel(prnBits, penX, penY, 1);
-}
-
-void MainWindow::oneLeft()
-{
-    outFile.write("7,");
-
-    setPixel(prnBits, penX, penY, 1);
-    penX--;
-    setPixel(prnBits, penX, penY, 1);
-}
-
-void MainWindow::oneRight()
-{
-    outFile.write("3,");
-
-    setPixel(prnBits, penX, penY, 1);
-    penX++;
-    setPixel(prnBits, penX, penY, 1);
-}
-
-void MainWindow::up(int times)
-{
-    for(int i = 0; i < times; i++)
-    {
-        oneUp();
-    }
-}
-
-void MainWindow::down(int times)
-{
-    for(int i = 0; i < times; i++)
-    {
-        oneDown();
-    }
-}
-
-void MainWindow::left(int times)
-{
-    for(int i = 0; i < times; i++)
-    {
-        oneLeft();
-    }
-}
-
-void MainWindow::right(int times)
-{
-    for(int i = 0; i < times; i++)
-    {
-        oneRight();
-    }
-}
-
 void MainWindow::on_bPrintDotted_clicked()
 {
     int doth = 2;
 
+    openOutFile("dotted_" + imgFile);
     for(int y = 0;;)
     {
         for(int x = 0; x < img.width(); x++)
@@ -441,6 +542,7 @@ void MainWindow::on_bPrintDotted_clicked()
         }
         down(2);
     }
+    closeOutFile();
 }
 
 void MainWindow::on_bPrintDraw_clicked()
@@ -448,6 +550,8 @@ void MainWindow::on_bPrintDraw_clicked()
     int x = 0;
     int y = 0;
     int nx, ny;
+
+    openOutFile("drawn_" + imgFile);
 
     setPixel(prtBits, 0, 0, 1);
 
@@ -483,11 +587,10 @@ void MainWindow::on_bPrintDraw_clicked()
         x = nx;
         y = ny;
     }
+    closeOutFile();
 }
-
-
 
 void MainWindow::on_bNiceDraw_clicked()
 {
-    niceDraw(img, prtBits, this);
+    niceDraw(img, prtBits, prnBits, this);
 }

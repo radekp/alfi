@@ -33,16 +33,20 @@ int getkey() {
 
 #define BASEPORT 0x378 /* lp1 */
 
-int shift = 0;
-int speed = 5000;
+int speed = 1800;
+int scale = 3;
 
 void output(char *vals)
 {
     //printf("%d\n", val);
     while(*vals)
     {
-        outb(*vals, BASEPORT);
-        usleep(speed);
+        int i;
+        for(i = 0; i < speed; i++)
+        {
+            outb(*vals, BASEPORT);
+        }
+/*        usleep(speed);*/
         vals++;
     }
 }
@@ -90,28 +94,28 @@ void oneRight()
 //   8 1 2
 //   7   3
 //   6 5 4
-void outData(char *data)
+void print()
 {
     int i;
-    int scale = *data;
     printf("scale=%d\n", scale);
-    *data++;
+    printf("reading data from stdout now\n");
     for(;;)
     {
+        int ch = getchar();
         for(i = 0; i < scale; i++)
         {
-            switch(*data)
+            switch(ch)
             {
-                case 1:
+                case '1':
                     oneUp();
                     break;
-                case 3:
+                case '3':
                     oneRight();
                     break;
-                case 5:
+                case '5':
                     oneDown();
                     break;
-                case 7:
+                case '7':
                     oneLeft();
                     break;
                 default:
@@ -119,23 +123,26 @@ void outData(char *data)
                     return;
             }
         }
-        data++;
     }
+    printf("done\n");
 }
 
-#include "data.txt"
-
-int main()
+int main(int argc, char ** argv)
 {
     int key;
     
     if (ioperm(BASEPORT, 3, 1)) {perror("ioperm");}
 
+    printf("m=pohyb, p=tisk, zxcv=rychlost a scale\n");
+    int ch = getchar();
+    if(ch >= '0' && ch <= '9')
+    {
+        print();
+    }
+
     int lpFlags = fcntl(0, F_GETFL, 0);
     fcntl (0, F_SETFL, (lpFlags | O_NDELAY));
-
-    printf("p=tisknout\nm=move\n");
-
+    
     for(;;)
     {
         key = getkey();
@@ -165,7 +172,7 @@ int main()
         }
         else if(key == 'p')
         {
-            outData(prn);
+            print();
         }
         else if(key == 'z')
         {
@@ -176,6 +183,16 @@ int main()
         {
             speed += 100;
             printf("speed %d\n", speed);
+        }
+        else if(key == 'c')
+        {
+            scale--;
+            printf("scale %d\n", scale);
+        }
+        else if(key == 'v')
+        {
+            scale++;
+            printf("scale %d\n", scale);
         }
         outb(0, BASEPORT);
     }
