@@ -30,6 +30,7 @@ char b;
 char buf[9];
 int bufPos;
 int val;
+int limit;      // last value of limit switch
 
 void setup()   {                
 
@@ -88,6 +89,7 @@ void loop()
     if(cmd == 'm')
     {
       cdelay = sdelay;
+      limit = -1;
       return;
     }
         
@@ -141,6 +143,8 @@ void loop()
     cmd = 0;    // we are done, read next command from serial
     return;
   }
+  
+  int oldLimit = limit;
 
   // motion handling
   if(axis == 0)
@@ -182,12 +186,10 @@ void loop()
       digitalWrite(5, HIGH);
       delay(cdelay);
       digitalWrite(5, LOW);
-
-      val = analogRead(A2);    // read the input pin
-      Serial.println(val);             // debug value
       
       cpos--;
     }
+    limit = analogRead(A2);    // read the limit switch
   }    
   else if(axis == 1)
   {
@@ -228,12 +230,10 @@ void loop()
       digitalWrite(6, HIGH);
       delay(cdelay);
       digitalWrite(6, LOW);
-
-      val = analogRead(A0);    // read the input pin
-      Serial.println(val);             // debug value
       
       cpos--;
     }
+    limit = analogRead(A0);    // read the limit switch
   }
   else if(axis == 2)
   {
@@ -275,17 +275,30 @@ void loop()
       delay(cdelay);
       digitalWrite(11, LOW);
       
-      val = analogRead(A1);    // read the input pin
-      Serial.println(val);             // debug value
-      
       cpos--;
     }
+    limit = analogRead(A1);    // read the limit switch
   }
   else
   {
     Serial.println("error: unknown axis");
     cmd = 0;
     return;
+  }
+  
+  // stop motion if limit switch value changes
+  if(oldLimit > 0)
+  {
+    int deltaL = abs(limit - oldLimit);
+    if(deltaL > 512)
+    {
+      Serial.print("limit ");
+      Serial.print(oldLimit);
+      Serial.print("->");
+      Serial.println(limit);
+      cmd = 0;
+      return;
+    }
   }
   
   // Handle acceleration/decceleration
