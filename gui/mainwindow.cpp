@@ -626,3 +626,33 @@ void MainWindow::on_bSendSerial_clicked()
 {
     port.write(ui->tbSendSerial->text().toAscii());
 }
+
+void MainWindow::on_bXMinus_clicked()
+{
+    port.write("a0 p100 t0 m ");
+}
+
+void MainWindow::on_bXPlus_clicked()
+{
+    port.write("a0 p0 t100 m ");
+}
+
+void MainWindow::on_bYMinus_clicked()
+{
+    port.write("a1 p100 t0 m ");
+}
+
+void MainWindow::on_bYPlus_clicked()
+{
+    port.write("a1 p0 t100 m ");
+}
+
+void MainWindow::on_bZMinus_clicked()
+{
+    port.write("a2 p100 t0 m ");
+}
+
+void MainWindow::on_bZPlus_clicked()
+{
+    port.write("a2 p0 t100 m ");
+}

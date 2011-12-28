@@ -22,9 +22,10 @@ int cpos;       // absolute current position - used to compute which pin will be
 int tpos;       // absolute target position 
 int sdelay;     // start delay - it decreases with each motor step until it reaches tdelay
 int tdelay;     // target deleay between steps (smaller number is higher speed)
+int delayStep;  // with this step is delay increased/decreased
 int cdelay;
 
-char cmd;       // command we are currenly reading (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, m=start motion)
+char cmd;       // command we are currenly reading (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion)
 char b;
 char buf[9];
 int bufPos;
@@ -64,9 +65,10 @@ void setup()   {
   axis = 0;
   cpos = 0;
   tpos = 0;  
-  sdelay = 8;
-  cdelay = 8;
-  tdelay = 3;
+  sdelay = 6000;
+  cdelay = 6000;
+  tdelay = 3000;
+  delayStep = 500;
   
   Serial.println("arduino init ok");
 }
@@ -92,19 +94,19 @@ void loop()
       {
         digitalWrite(5, HIGH);
         digitalWrite(3, HIGH);    // 53
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(5, LOW);     // 3
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(2, HIGH);    // 32
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(3, LOW);     // 2
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(4, HIGH);    // 24
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(2, LOW);     // 4
-        delay(cdelay);      
+        delayMicroseconds(cdelay);      
         digitalWrite(5, HIGH);    // 45
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(4, LOW);     // 5
   
         cpos++;
@@ -113,19 +115,19 @@ void loop()
       {
         digitalWrite(5, HIGH);
         digitalWrite(4, HIGH);    // 54
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(5, LOW);     // 4
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(2, HIGH);    // 42
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(4, LOW);     // 2
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(3, HIGH);    // 23
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(2, LOW);     // 3
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(5, HIGH);    // 35
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(3, LOW);     // 5
         
         cpos--;
@@ -138,19 +140,19 @@ void loop()
       {
         digitalWrite(6, HIGH);
         digitalWrite(8, HIGH);  // 68
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(6, LOW);   // 8
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(7, HIGH);  // 87
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(8, LOW);   // 7
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(9, HIGH);  // 79
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(7, LOW);   // 9
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(6, HIGH);  // 96
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(9, LOW);   // 6
         
         cpos++;
@@ -159,19 +161,19 @@ void loop()
       {
         digitalWrite(6, HIGH);
         digitalWrite(9, HIGH);  // 69
-        delay(cdelay);        
+        delayMicroseconds(cdelay);        
         digitalWrite(6, LOW);   // 9
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(7, HIGH);  // 97
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(9, LOW);   // 7
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(8, HIGH);  // 78
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(7, LOW);   // 8
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(6, HIGH);  // 86
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(8, LOW);   // 6
         
         cpos--;
@@ -184,19 +186,19 @@ void loop()
       {
         digitalWrite(11, HIGH);
         digitalWrite(10, HIGH);   // 11 10
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(11, LOW);    // 10
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(12, HIGH);   // 10 12
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(10, LOW);    // 12
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(13, HIGH);   // 12 13
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(12, LOW);    // 13
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(11, HIGH);   // 13 11
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(13, LOW);    // 11
   
         cpos++;
@@ -205,19 +207,19 @@ void loop()
       {
         digitalWrite(11, HIGH);
         digitalWrite(13, HIGH);   // 11 13
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(11, LOW);    // 13
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(12, HIGH);   // 13 12
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(13, LOW);    // 12
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(10, HIGH);   // 12 10
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(12, LOW);    // 10
-        delay(cdelay);  
+        delayMicroseconds(cdelay);  
         digitalWrite(11, HIGH);   // 10 11
-        delay(cdelay);
+        delayMicroseconds(cdelay);
         digitalWrite(10, LOW);    // 11
         
         cpos--;
@@ -248,17 +250,17 @@ void loop()
     
     // Handle acceleration/decceleration
     int deltaX = abs(tpos - cpos);
-    int deltaD = sdelay - tdelay;
+    int deltaD = (sdelay - tdelay) / delayStep;
     if(deltaX > deltaD)
     {
       if(cdelay > tdelay)
       {
-        cdelay--;  // we are far from target, we can accelerate
+        cdelay -= delayStep;  // we are far from target, we can accelerate
       }
     } 
     else if(cdelay < sdelay)
     {
-      cdelay++;    // we are closing to target so deccelerate
+      cdelay += delayStep;    // we are closing to target so deccelerate
     }
     return;    
   }
@@ -334,6 +336,10 @@ void loop()
     else if(cmd == 'd')
     {
         tdelay = val;
+    }
+    else if(cmd == 'z')
+    {
+        delayStep = val;
     }
     else {
       Serial.print("error: unknown command ");

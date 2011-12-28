@@ -69,6 +69,12 @@ public:
     void sendMove(int axis, int pos, int target);
 
 private slots:
+    void on_bZPlus_clicked();
+    void on_bZMinus_clicked();
+    void on_bYPlus_clicked();
+    void on_bYMinus_clicked();
+    void on_bXPlus_clicked();
+    void on_bXMinus_clicked();
     void on_bSendSerial_clicked();
     void on_bPrintDraw_clicked();
     void on_bPrintDotted_clicked();
