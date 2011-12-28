@@ -65,8 +65,8 @@ void setup()   {
   axis = 0;
   cpos = 0;
   tpos = 0;  
-  sdelay = 50;
-  cdelay = 100;
+  sdelay = 30;
+  cdelay = 30;
   tdelay = 10;
   
   Serial.println("arduino init ok");
@@ -74,6 +74,23 @@ void setup()   {
 
 void loop()                     
 {
+  // if not moving, stop current on all motor wirings
+  if(cmd == 0)
+  {
+    digitalWrite(13, LOW);
+    digitalWrite(12, LOW);
+    digitalWrite(11, LOW);
+    digitalWrite(10, LOW);
+    digitalWrite(9, LOW);
+    digitalWrite(8, LOW);
+    digitalWrite(7, LOW);
+    digitalWrite(6, LOW);
+    digitalWrite(5, LOW);
+    digitalWrite(4, LOW);
+    digitalWrite(3, LOW);
+    digitalWrite(2, LOW);
+  }
+  
   // check if data has been sent from the computer:
   if (Serial.available()) {
 
@@ -149,43 +166,45 @@ void loop()
   // motion handling
   if(axis == 0)
   {
-    if(cpos < tpos)  // ->
+    if(cpos < tpos)  // 3 2 4 5 ->
     {
-      digitalWrite(3, HIGH);
-      delay(cdelay);
-      digitalWrite(3, LOW);
-
-      digitalWrite(2, HIGH);
-      delay(cdelay);
-      digitalWrite(2, LOW);
-
-      digitalWrite(4, HIGH);
-      delay(cdelay);
-      digitalWrite(4, LOW);
-        
       digitalWrite(5, HIGH);
+      digitalWrite(3, HIGH);    // 53
       delay(cdelay);
-      digitalWrite(5, LOW);
+      digitalWrite(5, LOW);     // 3
+      delay(cdelay);
+      digitalWrite(2, HIGH);    // 32
+      delay(cdelay);
+      digitalWrite(3, LOW);     // 2
+      delay(cdelay);
+      digitalWrite(4, HIGH);    // 24
+      delay(cdelay);
+      digitalWrite(2, LOW);     // 4
+      delay(cdelay);      
+      digitalWrite(5, HIGH);    // 45
+      delay(cdelay);
+      digitalWrite(4, LOW);     // 5
 
       cpos++;
     }
-    else  // <-
+    else  // <- 4 2 3 5
     {
-      digitalWrite(4, HIGH);
-      delay(cdelay);
-      digitalWrite(4, LOW);
-
-      digitalWrite(2, HIGH);
-      delay(cdelay);
-      digitalWrite(2, LOW);
-
-      digitalWrite(3, HIGH);
-      delay(cdelay);
-      digitalWrite(3, LOW);
-        
       digitalWrite(5, HIGH);
+      digitalWrite(4, HIGH);    // 54
       delay(cdelay);
-      digitalWrite(5, LOW);
+      digitalWrite(5, LOW);     // 4
+      delay(cdelay);
+      digitalWrite(2, HIGH);    // 42
+      delay(cdelay);
+      digitalWrite(4, LOW);     // 2
+      delay(cdelay);
+      digitalWrite(3, HIGH);    // 23
+      delay(cdelay);
+      digitalWrite(2, LOW);     // 3
+      delay(cdelay);
+      digitalWrite(5, HIGH);    // 35
+      delay(cdelay);
+      digitalWrite(3, LOW);     // 5
       
       cpos--;
     }
@@ -193,43 +212,45 @@ void loop()
   }    
   else if(axis == 1)
   {
-    if(cpos < tpos)
+    if(cpos < tpos)  // ^ 8 7 9 6
     {
-      digitalWrite(8, HIGH);
+      digitalWrite(6, HIGH;
+      digitalWrite(8, HIGH);  // 68
       delay(cdelay);
-      digitalWrite(8, LOW);
-
-      digitalWrite(7, HIGH);
+      digitalWrite(6, LOW);   // 8
       delay(cdelay);
-      digitalWrite(7, LOW);
-
-      digitalWrite(9, HIGH);
+      digitalWrite(7, HIGH);  // 87
       delay(cdelay);
-      digitalWrite(9, LOW);
-        
-      digitalWrite(6, HIGH);
+      digitalWrite(8, LOW);   // 7
       delay(cdelay);
-      digitalWrite(6, LOW);
+      digitalWrite(9, HIGH);  // 79
+      delay(cdelay);
+      digitalWrite(7, LOW);   // 9
+      delay(cdelay);
+      digitalWrite(6, HIGH);  // 96
+      delay(cdelay);
+      digitalWrite(9, LOW);   // 6
       
       cpos++;
     }
-    else
+    else    // 9 7 8 6
     {
-      digitalWrite(9, HIGH);
-      delay(cdelay);
-      digitalWrite(9, LOW);
-
-      digitalWrite(7, HIGH);
-      delay(cdelay);
-      digitalWrite(7, LOW);
-
-      digitalWrite(8, HIGH);
-      delay(cdelay);
-      digitalWrite(8, LOW);
-        
       digitalWrite(6, HIGH);
+      digitalWrite(9, HIGH);  // 69
+      delay(cdelay);        
+      digitalWrite(6, LOW);   // 9
       delay(cdelay);
-      digitalWrite(6, LOW);
+      digitalWrite(7, HIGH);  // 97
+      delay(cdelay);
+      digitalWrite(9, LOW);   // 7
+      delay(cdelay);
+      digitalWrite(8, HIGH);  // 78
+      delay(cdelay);
+      digitalWrite(7, LOW);   // 8
+      delay(cdelay);
+      digitalWrite(6, HIGH);  // 86
+      delay(cdelay);
+      digitalWrite(8, LOW);   // 6
       
       cpos--;
     }
@@ -237,43 +258,45 @@ void loop()
   }
   else if(axis == 2)
   {
-    if(cpos < tpos)
+    if(cpos < tpos)  // 10 12 13 11
     {
-      digitalWrite(10, HIGH);
-      delay(cdelay);
-      digitalWrite(10, LOW);
-    
-      digitalWrite(12, HIGH);
-      delay(cdelay);
-      digitalWrite(12, LOW);
-    
-      digitalWrite(13, HIGH);
-      delay(cdelay);
-      digitalWrite(13, LOW);
-    
       digitalWrite(11, HIGH);
+      digitalWrite(10, HIGH);   // 11 10
       delay(cdelay);
-      digitalWrite(11, LOW);
+      digitalWrite(11, LOW);    // 10
+      delay(cdelay);
+      digitalWrite(12, HIGH);   // 10 12
+      delay(cdelay);
+      digitalWrite(10, LOW);    // 12
+      delay(cdelay);
+      digitalWrite(13, HIGH);   // 12 13
+      delay(cdelay);
+      digitalWrite(12, LOW);    // 13
+      delay(cdelay);
+      digitalWrite(11, HIGH);   // 13 11
+      delay(cdelay);
+      digitalWrite(13, LOW);    // 11
 
       cpos++;
     }
-    else
+    else          // 13 12 10 11
     {
-      digitalWrite(13, HIGH);
-      delay(cdelay);
-      digitalWrite(13, LOW);
-
-      digitalWrite(12, HIGH);
-      delay(cdelay);
-      digitalWrite(12, LOW);
-
-      digitalWrite(10, HIGH);
-      delay(cdelay);
-      digitalWrite(10, LOW);    
-    
       digitalWrite(11, HIGH);
+      digitalWrite(13, HIGH);   // 11 13
       delay(cdelay);
-      digitalWrite(11, LOW);
+      digitalWrite(11, LOW);    // 13
+      delay(cdelay);
+      digitalWrite(12, HIGH);   // 13 12
+      delay(cdelay);
+      digitalWrite(13, LOW);    // 12
+      delay(cdelay);
+      digitalWrite(10, HIGH);   // 12 10
+      delay(cdelay);
+      digitalWrite(12, LOW);    // 10
+      delay(cdelay);  
+      digitalWrite(11, HIGH);   // 10 11
+      delay(cdelay);
+      digitalWrite(10, LOW);    // 11
       
       cpos--;
     }
@@ -308,11 +331,13 @@ void loop()
   {
     if(cdelay > tdelay)
     {
+      Serial.println(cdelay);
       cdelay--;  // we are far from target, we can accelerate
     }
   } 
   else if(cdelay < sdelay)
   {
+    Serial.println(cdelay);
     cdelay++;    // we are closing to target so deccelerate
   }
 }
