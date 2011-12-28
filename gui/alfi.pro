@@ -9,8 +9,13 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp
+        mainwindow.cpp \
+    qserialiodevice.cpp \
+    qserialport.cpp
 
-HEADERS  += mainwindow.h
+HEADERS  += mainwindow.h \
+    qserialiodevice_p.h \
+    qserialiodevice.h \
+    qserialport.h
 
 FORMS    += mainwindow.ui
