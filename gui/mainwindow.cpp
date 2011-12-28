@@ -48,11 +48,12 @@ void closeOutFile()
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600)
 {
     ui->setupUi(this);
     imgFile = QString::null;
     nextImg();
+    readSerial();
 }
 
 MainWindow::~MainWindow()
@@ -593,4 +594,21 @@ void MainWindow::on_bPrintDraw_clicked()
 void MainWindow::on_bNiceDraw_clicked()
 {
     niceDraw(img, prtBits, prnBits, this);
+}
+
+void MainWindow::readSerial()
+{
+    int avail = port.bytesAvailable();
+    if(avail <= 0)
+    {
+        QTimer::singleShot(1000, this, SLOT(readSerial()));
+        return;
+    }
+    QByteArray data = port.readAll();
+    qDebug() << data;
+}
+
+void MainWindow::on_bSendSerial_clicked()
+{
+    port.write("p0 t100 m");
 }

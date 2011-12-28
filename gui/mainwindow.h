@@ -14,6 +14,8 @@
 #include <QMessageBox>
 #include <QDebug>
 
+#include "qserialport.h"
+
 namespace Ui
 {
     class MainWindow;
@@ -50,6 +52,8 @@ public:
     QString imgFile;
     int penX;
     int penY;
+    QSerialPort port;
+
     void handleArrowClick(Direction);
     void loadImg();
     void nextImg();
@@ -63,10 +67,12 @@ public:
     void right(int times);
 
 private slots:
+    void on_bSendSerial_clicked();
     void on_bPrintDraw_clicked();
     void on_bPrintDotted_clicked();
     void on_bImg_clicked();
     void on_bNiceDraw_clicked();
+    void readSerial();
 };
 
 class Sleeper : public QThread

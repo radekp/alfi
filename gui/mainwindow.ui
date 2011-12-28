@@ -69,6 +69,39 @@
      <string>Nice draw</string>
     </property>
    </widget>
+   <widget class="QLineEdit" name="tbSendSerial">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>40</y>
+      <width>261</width>
+      <height>25</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QTextBrowser" name="tbSerial">
+    <property name="geometry">
+     <rect>
+      <x>420</x>
+      <y>10</y>
+      <width>256</width>
+      <height>51</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="bSendSerial">
+    <property name="geometry">
+     <rect>
+      <x>280</x>
+      <y>40</y>
+      <width>121</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Send serial</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -76,7 +109,7 @@
      <x>0</x>
      <y>0</y>
      <width>859</width>
-     <height>25</height>
+     <height>23</height>
     </rect>
    </property>
   </widget>
