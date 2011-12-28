@@ -214,7 +214,7 @@ void loop()
   {
     if(cpos < tpos)  // ^ 8 7 9 6
     {
-      digitalWrite(6, HIGH;
+      digitalWrite(6, HIGH);
       digitalWrite(8, HIGH);  // 68
       delay(cdelay);
       digitalWrite(6, LOW);   // 8
