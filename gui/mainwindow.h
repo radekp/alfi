@@ -52,6 +52,7 @@ public:
     QString imgFile;
     int penX;
     int penY;
+    int cmdNo;
     QSerialPort port;
 
     void handleArrowClick(Direction);
@@ -65,6 +66,7 @@ public:
     void down(int times);
     void left(int times);
     void right(int times);
+    void sendMove(int axis, int pos, int target);
 
 private slots:
     void on_bSendSerial_clicked();

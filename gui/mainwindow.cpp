@@ -48,11 +48,15 @@ void closeOutFile()
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), cmdNo(0)
 {
     ui->setupUi(this);
     imgFile = QString::null;
     nextImg();
+    if(!port.open(QFile::ReadWrite))
+    {
+        ui->tbSerial->setText(port.errorString());
+    }
     readSerial();
 }
 
@@ -546,49 +550,57 @@ void MainWindow::on_bPrintDotted_clicked()
     closeOutFile();
 }
 
+void MainWindow::sendMove(int axis, int pos, int target)
+{
+    QString cmd = "a" + QString::number(axis) +
+                  " p" + QString::number(pos) +
+                  " t" + QString::number(target) +
+                  " m" + QString::number(cmdNo) + " ";
+
+    qDebug() << cmd;
+    port.write(cmd.toAscii());
+
+    QString expect = "done " + QString::number(cmdNo);
+    QString reply;
+    for(;;)
+    {
+        port.waitForReadyRead(10);
+        int avail = port.bytesAvailable();
+        if(avail <= 0)
+        {
+            continue;
+        }
+        QByteArray str = port.read(avail);
+        ui->tbSerial->append(str);
+        ui->tbSerial->update();
+        reply += str;
+        if(reply.indexOf(expect) >= 0)
+        {
+            break;
+        }
+    }
+    cmdNo++;
+}
+
 void MainWindow::on_bPrintDraw_clicked()
 {
     int x = 0;
     int y = 0;
     int nx, ny;
 
-    openOutFile("drawn_" + imgFile);
-
     setPixel(prtBits, 0, 0, 1);
 
     while(findNearest(x, y, img, prtBits, &nx, &ny))
     {
-        int dx = nx - x;
-        int dy = ny - y;
-
-        //update(x - abs(dx), y - abs(dy), abs(dx) * 2, abs(dy) * 2);
         update();
         QApplication::processEvents();
 
-        while(dx > 0)
-        {
-            dx--;
-            oneRight();
-        }
-        while(dx < 0)
-        {
-            dx++;
-            oneLeft();
-        }
-        while(dy > 0)
-        {
-            dy--;
-            oneDown();
-        }
-        while(dy < 0)
-        {
-            dy++;
-            oneUp();
-        }
+        sendMove(0, x * 3, nx * 3);
+        sendMove(1, y * 3, ny * 3);
+
         x = nx;
         y = ny;
     }
-    closeOutFile();
 }
 
 void MainWindow::on_bNiceDraw_clicked()
@@ -606,9 +618,11 @@ void MainWindow::readSerial()
     }
     QByteArray data = port.readAll();
     qDebug() << data;
+    ui->tbSerial->append(data);
+    QTimer::singleShot(200, this, SLOT(readSerial()));
 }
 
 void MainWindow::on_bSendSerial_clicked()
 {
-    port.write("p0 t100 m");
+    port.write(ui->tbSendSerial->text().toAscii());
 }
