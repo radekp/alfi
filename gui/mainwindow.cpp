@@ -408,6 +408,62 @@ bool findNearest(int x, int y, QImage & img, uchar *bits, int *nx, int *ny)
     return false;
 }
 
+bool findNext(int x, int y, QImage & img, uchar *bits, int *nx, int *ny)
+{
+    int imax = img.width() + img.height();
+
+    int xp, xm, yp, ym;     // xplus, xminus, yplus, yminus
+    xp = xm = yp = ym = 0;
+    for(int i = 1; i < imax; i++)
+    {
+        if(x - i >= 0 && (xm + 1 == i))
+        {
+            QRgb pix = img.pixel(x - i, y);
+            int grey = qGray(pix);
+            if(grey <= 127 && getPixel(bits, x - i, y) == 0)
+            {
+                xm = i;
+            }
+        }
+
+        if(x + i < img.width() && (xp + 1 == i))
+        {
+            QRgb pix = img.pixel(x + i, y);
+            int grey = qGray(pix);
+            if(grey <= 127 && getPixel(bits, x + i, y) == 0)
+            {
+                xp = i;
+            }
+        }
+
+        if(xm == i || xp == i)
+        {
+            continue;
+        }
+        break;
+    }
+
+    if(xm == 0 && xp == 0)
+    {
+        return findNearest(x, y, img, bits, nx, ny);
+    }
+    if(xm > xp)
+    {
+        for(int i = 1; i <= xm; i++)
+        {
+            setPixel(bits, x - i, y, 1);
+        }
+        *nx = x - xm;
+    }
+    for(int i = 1; i <= xp; i++)
+    {
+        setPixel(bits, x + i, y, 1);
+    }
+    *nx = x + xp;
+    return true;
+}
+
+
 static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 {
     img = QImage(width, height, QImage::Format_Indexed8);
@@ -578,6 +634,10 @@ void MainWindow::sendMove(int axis, int pos, int target)
         {
             break;
         }
+        if(reply.indexOf("limit") >= 0)
+        {
+            QMessageBox::information(this, "Limit reached", reply);
+        }
     }
     cmdNo++;
 }
@@ -589,6 +649,7 @@ void MainWindow::on_bPrintDraw_clicked()
     int nx, ny;
 
     setPixel(prtBits, 0, 0, 1);
+    findNearest(0, 0, img, prtBits, &x, &y);
 
     while(findNearest(x, y, img, prtBits, &nx, &ny))
     {
