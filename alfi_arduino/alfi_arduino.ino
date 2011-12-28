@@ -182,28 +182,7 @@ void loop()
     }
     else if(axis == 2)
     {
-      if(cpos < tpos)  // 10 12 13 11
-      {
-        digitalWrite(11, HIGH);
-        digitalWrite(10, HIGH);   // 11 10
-        delayMicroseconds(cdelay);
-        digitalWrite(11, LOW);    // 10
-        delayMicroseconds(cdelay);
-        digitalWrite(12, HIGH);   // 10 12
-        delayMicroseconds(cdelay);
-        digitalWrite(10, LOW);    // 12
-        delayMicroseconds(cdelay);
-        digitalWrite(13, HIGH);   // 12 13
-        delayMicroseconds(cdelay);
-        digitalWrite(12, LOW);    // 13
-        delayMicroseconds(cdelay);
-        digitalWrite(11, HIGH);   // 13 11
-        delayMicroseconds(cdelay);
-        digitalWrite(13, LOW);    // 11
-  
-        cpos++;
-      }
-      else          // 13 12 10 11
+      if(cpos < tpos)  // 13 12 10 11
       {
         digitalWrite(11, HIGH);
         digitalWrite(13, HIGH);   // 11 13
@@ -221,6 +200,27 @@ void loop()
         digitalWrite(11, HIGH);   // 10 11
         delayMicroseconds(cdelay);
         digitalWrite(10, LOW);    // 11
+  
+        cpos++;
+      }
+      else          // 10 12 13 11
+      {
+        digitalWrite(11, HIGH);
+        digitalWrite(10, HIGH);   // 11 10
+        delayMicroseconds(cdelay);
+        digitalWrite(11, LOW);    // 10
+        delayMicroseconds(cdelay);
+        digitalWrite(12, HIGH);   // 10 12
+        delayMicroseconds(cdelay);
+        digitalWrite(10, LOW);    // 12
+        delayMicroseconds(cdelay);
+        digitalWrite(13, HIGH);   // 12 13
+        delayMicroseconds(cdelay);
+        digitalWrite(12, LOW);    // 13
+        delayMicroseconds(cdelay);
+        digitalWrite(11, HIGH);   // 13 11
+        delayMicroseconds(cdelay);
+        digitalWrite(13, LOW);    // 11
         
         cpos--;
       }

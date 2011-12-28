@@ -73,8 +73,7 @@ void MainWindow::paintEvent(QPaintEvent *)
         return;
     }
     p.drawImage(0, 200, img);
-    p.drawImage(img.width(), 200, prt);
-    p.drawImage(img.width() + PRN_WIDTH, 200, prn);
+    p.drawImage(img.width(), 200, prn);
 }
 
 void redraw(MainWindow *win)
@@ -408,61 +407,80 @@ bool findNearest(int x, int y, QImage & img, uchar *bits, int *nx, int *ny)
     return false;
 }
 
-bool findNext(int x, int y, QImage & img, uchar *bits, int *nx, int *ny)
+bool isBlack(QImage & img, int x, int y)
 {
-    int imax = img.width() + img.height();
-
-    int xp, xm, yp, ym;     // xplus, xminus, yplus, yminus
-    xp = xm = yp = ym = 0;
-    for(int i = 1; i < imax; i++)
+    if(x < 0 || x >= img.width() || y < 0 || y >= img.height())
     {
-        if(x - i >= 0 && (xm + 1 == i))
-        {
-            QRgb pix = img.pixel(x - i, y);
-            int grey = qGray(pix);
-            if(grey <= 127 && getPixel(bits, x - i, y) == 0)
-            {
-                xm = i;
-            }
-        }
+        return false;
+    }
+    QRgb pix = img.pixel(x, y);
+    int grey = qGray(pix);
+    return grey <= 127;
+}
 
-        if(x + i < img.width() && (xp + 1 == i))
-        {
-            QRgb pix = img.pixel(x + i, y);
-            int grey = qGray(pix);
-            if(grey <= 127 && getPixel(bits, x + i, y) == 0)
-            {
-                xp = i;
-            }
-        }
+bool isWhite(QImage & img, int x, int y)
+{
+    return !isBlack(img, x, y);
+}
 
-        if(xm == i || xp == i)
+// Find first pixel from top, if more return the one most left
+bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
+{
+    for(int i = 0; i < img.height(); i++)
+    {
+        for(int j = 0; j < img.width(); j++)
+        {
+            if(isWhite(img, j, i))
+            {
+                continue;
+            }
+            if(getPixel(bits, j, i))
+            {
+                continue;
+            }
+            *x = j;
+            *y = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+void MainWindow::move(int axis, int pos, int target, int scale)
+{
+    QString cmd = "a" + QString::number(axis) +
+                  " p" + QString::number(pos * scale) +
+                  " t" + QString::number(target * scale) +
+                  " m" + QString::number(cmdNo) + " ";
+
+    qDebug() << cmd;
+    port.write(cmd.toAscii());
+
+    QString expect = "done " + QString::number(cmdNo);
+    QString reply;
+    for(;;)
+    {
+        port.waitForReadyRead(10);
+        int avail = port.bytesAvailable();
+        if(avail <= 0)
         {
             continue;
         }
-        break;
-    }
-
-    if(xm == 0 && xp == 0)
-    {
-        return findNearest(x, y, img, bits, nx, ny);
-    }
-    if(xm > xp)
-    {
-        for(int i = 1; i <= xm; i++)
+        QByteArray str = port.read(avail);
+        ui->tbSerial->append(str);
+        ui->tbSerial->update();
+        reply += str;
+        if(reply.indexOf(expect) >= 0)
         {
-            setPixel(bits, x - i, y, 1);
+            break;
         }
-        *nx = x - xm;
+        if(reply.indexOf("limit") >= 0)
+        {
+            QMessageBox::information(this, "Limit reached", reply);
+        }
     }
-    for(int i = 1; i <= xp; i++)
-    {
-        setPixel(bits, x + i, y, 1);
-    }
-    *nx = x + xp;
-    return true;
+    cmdNo++;
 }
-
 
 static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 {
@@ -488,7 +506,6 @@ void MainWindow::loadImg()
 
     penX = penY = 0;
 
-    MkPrnImg(prt, PRN_WIDTH, PRN_HEIGHT, &prtBits);
     MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
     update();
 }
@@ -606,58 +623,24 @@ void MainWindow::on_bPrintDotted_clicked()
     closeOutFile();
 }
 
-void MainWindow::sendMove(int axis, int pos, int target)
-{
-    QString cmd = "a" + QString::number(axis) +
-                  " p" + QString::number(pos) +
-                  " t" + QString::number(target) +
-                  " m" + QString::number(cmdNo) + " ";
-
-    qDebug() << cmd;
-    port.write(cmd.toAscii());
-
-    QString expect = "done " + QString::number(cmdNo);
-    QString reply;
-    for(;;)
-    {
-        port.waitForReadyRead(10);
-        int avail = port.bytesAvailable();
-        if(avail <= 0)
-        {
-            continue;
-        }
-        QByteArray str = port.read(avail);
-        ui->tbSerial->append(str);
-        ui->tbSerial->update();
-        reply += str;
-        if(reply.indexOf(expect) >= 0)
-        {
-            break;
-        }
-        if(reply.indexOf("limit") >= 0)
-        {
-            QMessageBox::information(this, "Limit reached", reply);
-        }
-    }
-    cmdNo++;
-}
 
 void MainWindow::on_bPrintDraw_clicked()
 {
     int x = 0;
     int y = 0;
     int nx, ny;
+    int scale = 3;
 
-    setPixel(prtBits, 0, 0, 1);
-    findNearest(0, 0, img, prtBits, &x, &y);
+    setPixel(prnBits, 0, 0, 1);
+    findNearest(0, 0, img, prnBits, &x, &y);
 
-    while(findNearest(x, y, img, prtBits, &nx, &ny))
+    while(findNearest(x, y, img, prnBits, &nx, &ny))
     {
         update();
         QApplication::processEvents();
 
-        sendMove(0, x * 3, nx * 3);
-        sendMove(1, y * 3, ny * 3);
+        move(0, x, nx, scale);
+        move(1, y, ny, scale);
 
         x = nx;
         y = ny;
@@ -666,7 +649,86 @@ void MainWindow::on_bPrintDraw_clicked()
 
 void MainWindow::on_bNiceDraw_clicked()
 {
-    niceDraw(img, prtBits, prnBits, this);
+    int scale = 5;
+    int x = 0;
+    int y = 0;
+    int tx, ty;
+    while(findTopLeft(img, prnBits, &tx, &ty))
+    {
+        move(0, x, tx, scale);
+        move(1, y, ty, scale);
+        x = tx;
+        y = ty;
+        move(2, 0, 100);     // pen down
+        setPixel(prnBits, x, y, 1);
+
+        for(;;)
+        {
+            // Move right until first white pixel
+            int right = 0;
+            for(int i = 1; i < img.width(); i++)
+            {
+                if(isWhite(img, x + i, y))
+                {
+                    break;
+                }
+                right = i;
+                setPixel(prnBits, x + i, y, 1);
+            }
+            if(right > 0)
+            {
+                move(0, x, x + right, scale);
+                x += right;
+            }
+
+            // Check pixel below
+            if(isWhite(img, x, y + 1))
+            {
+                move(2, 100, 0);     // pen up
+                break;
+            }
+
+            // Move to line below
+            move(1, y, y + 1, scale);
+            y++;
+            setPixel(prnBits, x, y, 1);
+
+            update();
+            QApplication::processEvents();
+
+            // Move left until first white pixel
+            int left = 0;
+            for(int i = 1; i < img.width(); i++)
+            {
+                if(isWhite(img, x - i, y))
+                {
+                    break;
+                }
+                left = i;
+                setPixel(prnBits, x - i, y, 1);
+            }
+            if(left > 0)
+            {
+                move(0, x, x - left, scale);
+                x -= left;
+            }
+
+            // Check pixel below
+            if(isWhite(img, x, y + 1))
+            {
+                move(2, 100, 0);     // pen up
+                break;
+            }
+
+            // Move to line below
+            move(1, y, y + 1, scale);
+            y++;
+            setPixel(prnBits, x, y, 1);
+
+            update();
+            QApplication::processEvents();
+        }
+    }
 }
 
 void MainWindow::readSerial()
@@ -710,10 +772,10 @@ void MainWindow::on_bYPlus_clicked()
 
 void MainWindow::on_bZMinus_clicked()
 {
-    port.write("a2 p100 t0 m ");
+    port.write("a2 p30 t0 m ");
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
-    port.write("a2 p0 t100 m ");
+    port.write("a2 p0 t30 m ");
 }

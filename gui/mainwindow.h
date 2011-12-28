@@ -45,9 +45,7 @@ public:
     Ui::MainWindow *ui;
     int lpFlags;
     QImage img;
-    QImage prt;
     QImage prn;
-    uchar *prtBits;
     uchar *prnBits;
     QString imgFile;
     int penX;
@@ -66,7 +64,7 @@ public:
     void down(int times);
     void left(int times);
     void right(int times);
-    void sendMove(int axis, int pos, int target);
+    void move(int axis, int pos, int target, int scale = 1);
 
 private slots:
     void on_bZPlus_clicked();
