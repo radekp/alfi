@@ -25,8 +25,8 @@
 
 #define BASEPORT 0x378 /* lp1 */
 
-#define PRN_WIDTH 511
-#define PRN_HEIGHT 511
+#define PRN_WIDTH 2047
+#define PRN_HEIGHT 1023
 
 QFile *outFile = NULL;
 
@@ -72,8 +72,8 @@ void MainWindow::paintEvent(QPaintEvent *)
     {
         return;
     }
-    p.drawImage(0, 200, img);
-    p.drawImage(img.width(), 200, prn);
+//    p.drawImage(0, 50, img);
+    p.drawImage(0, 50, prn);
 }
 
 void redraw(MainWindow *win)
@@ -649,87 +649,136 @@ void MainWindow::on_bPrintDraw_clicked()
 
 void MainWindow::on_bNiceDraw_clicked()
 {
-    int scale = 5;
     int x = 0;
     int y = 0;
-    int tx, ty;
-    while(findTopLeft(img, prnBits, &tx, &ty))
+    int x1, y1;
+    int x2, y2;
+    int scale = 2;
+
+    setPixel(prnBits, 0, 0, 1);
+    findNearest(0, 0, img, prnBits, &x, &y);
+
+    for(;;)
     {
-        move(0, x, tx, scale);
-        move(1, y, ty, scale);
-        x = tx;
-        y = ty;
-        move(2, 0, 100);     // pen down
-        setPixel(prnBits, x, y, 1);
+        if(!findNearest(x, y, img, prnBits, &x1, &y1))
+        {
+            return;
+        }
+        update();
+        QApplication::processEvents();
 
         for(;;)
         {
-            // Move right until first white pixel
-            int right = 0;
-            for(int i = 1; i < img.width(); i++)
+            if(!findNearest(x1, y1, img, prnBits, &x2, &y2))
             {
-                if(isWhite(img, x + i, y))
-                {
-                    break;
-                }
-                right = i;
-                setPixel(prnBits, x + i, y, 1);
+                move(0, x, x1, scale);
+                move(1, y, y1, scale);
+                return;
             }
-            if(right > 0)
-            {
-                move(0, x, x + right, scale);
-                x += right;
-            }
-
-            // Check pixel below
-            if(isWhite(img, x, y + 1))
-            {
-                move(2, 100, 0);     // pen up
-                break;
-            }
-
-            // Move to line below
-            move(1, y, y + 1, scale);
-            y++;
-            setPixel(prnBits, x, y, 1);
-
             update();
             QApplication::processEvents();
 
-            // Move left until first white pixel
-            int left = 0;
-            for(int i = 1; i < img.width(); i++)
+            if(x == x1 && x == x2)
             {
-                if(isWhite(img, x - i, y))
-                {
-                    break;
-                }
-                left = i;
-                setPixel(prnBits, x - i, y, 1);
+                continue;
             }
-            if(left > 0)
+            if(y == y1 && y == y2)
             {
-                move(0, x, x - left, scale);
-                x -= left;
+                continue;
             }
-
-            // Check pixel below
-            if(isWhite(img, x, y + 1))
-            {
-                move(2, 100, 0);     // pen up
-                break;
-            }
-
-            // Move to line below
-            move(1, y, y + 1, scale);
-            y++;
-            setPixel(prnBits, x, y, 1);
-
-            update();
-            QApplication::processEvents();
+            move(0, x, x1, scale);
+            move(1, y, y1, scale);
+            move(0, x1, x2, scale);
+            move(1, y1, y2, scale);
+            x = x2;
+            y = y2;
+            break;
         }
     }
 }
+
+
+//    int scale = 3;
+//    int x = 0;
+//    int y = 0;
+//    int tx, ty;
+//    while(findTopLeft(img, prnBits, &tx, &ty))
+//    {
+//        move(0, x, tx, scale);
+//        move(1, y, ty, scale);
+//        x = tx;
+//        y = ty;
+//        //move(2, 0, 100);     // pen down
+//        setPixel(prnBits, x, y, 1);
+
+//        for(;;)
+//        {
+//            // Move right until first white pixel
+//            int right = 0;
+//            for(int i = 1; i < img.width(); i++)
+//            {
+//                if(isWhite(img, x + i, y))
+//                {
+//                    break;
+//                }
+//                right = i;
+//                setPixel(prnBits, x + i, y, 1);
+//            }
+//            if(right > 0)
+//            {
+//                move(0, x, x + right, scale);
+//                x += right;
+//            }
+
+//            // Check pixel below
+//            if(isWhite(img, x, y + 1))
+//            {
+//                //move(2, 100, 0);     // pen up
+//                break;
+//            }
+
+//            // Move to line below
+//            move(1, y, y + 1, scale);
+//            y++;
+//            setPixel(prnBits, x, y, 1);
+
+//            update();
+//            QApplication::processEvents();
+
+//            // Move left until first white pixel
+//            int left = 0;
+//            for(int i = 1; i < img.width(); i++)
+//            {
+//                if(isWhite(img, x - i, y))
+//                {
+//                    break;
+//                }
+//                left = i;
+//                setPixel(prnBits, x - i, y, 1);
+//            }
+//            if(left > 0)
+//            {
+//                move(0, x, x - left, scale);
+//                x -= left;
+//            }
+
+//            // Check pixel below
+//            if(isWhite(img, x, y + 1))
+//            {
+//                //move(2, 100, 0);     // pen up
+//                break;
+//            }
+
+//            // Move to line below
+//            move(1, y, y + 1, scale);
+//            y++;
+//            setPixel(prnBits, x, y, 1);
+
+//            update();
+//            QApplication::processEvents();
+//        }
+//    }
+//}
 
 void MainWindow::readSerial()
 {
@@ -757,11 +806,13 @@ void MainWindow::on_bXMinus_clicked()
 
 void MainWindow::on_bXPlus_clicked()
 {
+    qDebug() << "XPlus";
     port.write("a0 p0 t100 m ");
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
+    qDebug() << "XMinus";
     port.write("a1 p100 t0 m ");
 }
 
@@ -778,4 +829,81 @@ void MainWindow::on_bZMinus_clicked()
 void MainWindow::on_bZPlus_clicked()
 {
     port.write("a2 p0 t30 m ");
+}
+
+static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
+{
+    if(oldX == nx && oldY == ny)
+    {
+        return false;       // never return to the same point
+    }
+    if(isWhite(img, nx, ny))
+    {
+        return false;
+    }
+    *x = nx;
+    *y = ny;
+    setPixel(bits, nx, ny, 1);
+    return true;
+}
+
+void MainWindow::on_bMill_clicked()
+{
+    int scale = 1;
+    int x = 0;
+    int y = 0;
+    int top, left;
+
+    findTopLeft(img, prnBits, &left, &top);
+
+    move(0, 0, left, scale);
+    move(1, 0, top, scale);
+    setPixel(prnBits, left, top, 1);
+
+    x = left;
+    y = top;
+
+    int oldX = x;
+    int oldY = y;
+
+    int color = 1;
+
+    for(;;)
+    {
+        int newX;
+        int newY;
+
+        bool ok =
+                findNext(img, prnBits, &newX, &newY, oldX, oldY, x, y + 1) ||
+                findNext(img, prnBits, &newX, &newY, oldX, oldY, x + 1, y) ||
+                findNext(img, prnBits, &newX, &newY, oldX, oldY, x, y - 1) ||
+                findNext(img, prnBits, &newX, &newY, oldX, oldY, x - 1, y) ||
+                findNext(img, prnBits, &newX, &newY, oldX, oldY, x + 1, y - 1) ||
+                findNext(img, prnBits, &newX, &newY, oldX, oldY, x - 1, y - 1) ||
+                findNext(img, prnBits, &newX, &newY, oldX, oldY, x - 1, y + 1);
+
+        if(!ok)
+        {
+            QMessageBox::critical(this, "Mill algorithm", "couldnt find next point");
+        }
+
+        oldX = x;
+        oldY = y;
+
+        move(0, x, newX, scale);
+        move(1, y, newY, scale);
+
+        x = newX;
+        y = newY;
+        setPixel(prnBits, x, y, color);
+
+        update();
+        QApplication::processEvents();
+
+        if(x == left && y == top)
+        {
+            color = color ? 0 : 1;
+            port.write("a2 p0 t30 m ");
+        }
+    }
 }

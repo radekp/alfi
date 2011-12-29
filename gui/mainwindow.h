@@ -67,6 +67,7 @@ public:
     void move(int axis, int pos, int target, int scale = 1);
 
 private slots:
+    void on_bMill_clicked();
     void on_bZPlus_clicked();
     void on_bZMinus_clicked();
     void on_bYPlus_clicked();
