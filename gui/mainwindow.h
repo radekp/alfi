@@ -64,7 +64,7 @@ public:
     void down(int times);
     void left(int times);
     void right(int times);
-    void move(int axis, int pos, int target, int scale = 1);
+    void move(int axis, int pos, int target, int scale = 1, bool fake = false);
 
 private slots:
     void on_bMill_clicked();

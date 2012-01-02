@@ -26,7 +26,7 @@
 #define BASEPORT 0x378 /* lp1 */
 
 #define PRN_WIDTH 2047
-#define PRN_HEIGHT 1023
+#define PRN_HEIGHT 2047
 
 QFile *outFile = NULL;
 
@@ -48,7 +48,7 @@ void closeOutFile()
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), cmdNo(0)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 115200), cmdNo(0)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -73,7 +73,7 @@ void MainWindow::paintEvent(QPaintEvent *)
         return;
     }
 //    p.drawImage(0, 50, img);
-    p.drawImage(0, 50, prn);
+    p.drawImage(0, 100, prn);
 }
 
 void redraw(MainWindow *win)
@@ -446,8 +446,13 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
     return false;
 }
 
-void MainWindow::move(int axis, int pos, int target, int scale)
+void MainWindow::move(int axis, int pos, int target, int scale, bool fake)
 {
+    if(fake)
+    {
+        return;
+    }
+
     QString cmd = "a" + QString::number(axis) +
                   " p" + QString::number(pos * scale) +
                   " t" + QString::number(target * scale) +
@@ -503,6 +508,7 @@ void MainWindow::loadImg()
     img = QImage(imgFile);
 
     qDebug() << "img size=" << img.width() << "x" << img.height();
+    setWindowTitle(imgFile + " " + QString::number(img.width()) + "x" + QString::number(img.height()));
 
     penX = penY = 0;
 
@@ -854,56 +860,134 @@ void MainWindow::on_bMill_clicked()
     int y = 0;
     int top, left;
 
+    // Find position in case serial communication was interrupted
+    int findX = -1;
+    int findY = -1;
+    QString posStr = ui->tbPos->text();
+    bool findPos = posStr.length() > 0;
+    if(findPos)
+    {
+        QStringList list = posStr.split(',');
+        QString strX = list.at(0);
+        QString strY = list.at(1);
+        findX = strX.toInt();
+        findY = strY.toInt();
+    }
+
     findTopLeft(img, prnBits, &left, &top);
 
-    move(0, 0, left, scale);
-    move(1, 0, top, scale);
+    move(0, 0, left, scale, findPos);
+    move(1, 0, top, scale, findPos);
     setPixel(prnBits, left, top, 1);
 
     x = left;
     y = top;
 
-    int oldX = x;
-    int oldY = y;
-
+    //
+    //    0
+    // 3     1
+    //    2
+    int dir = -1;
     int color = 1;
-
     for(;;)
     {
-        int newX;
-        int newY;
-
-        bool ok =
-                findNext(img, prnBits, &newX, &newY, oldX, oldY, x, y + 1) ||
-                findNext(img, prnBits, &newX, &newY, oldX, oldY, x + 1, y) ||
-                findNext(img, prnBits, &newX, &newY, oldX, oldY, x, y - 1) ||
-                findNext(img, prnBits, &newX, &newY, oldX, oldY, x - 1, y) ||
-                findNext(img, prnBits, &newX, &newY, oldX, oldY, x + 1, y - 1) ||
-                findNext(img, prnBits, &newX, &newY, oldX, oldY, x - 1, y - 1) ||
-                findNext(img, prnBits, &newX, &newY, oldX, oldY, x - 1, y + 1);
-
-        if(!ok)
+        int score0 = 0;
+        for(int i = 1; i < 50 && dir != 2; i++)
         {
-            QMessageBox::critical(this, "Mill algorithm", "couldnt find next point");
+            if(isWhite(img, x, y - i))
+            {
+                break;
+            }
+            score0++;
+        }
+        int score1 = 0;
+        for(int i = 1; i < 50 && dir != 3; i++)
+        {
+            if(isWhite(img, x + i, y))
+            {
+                break;
+            }
+            score1++;
+        }
+        int score2 = 0;
+        for(int i = 1; i < 50 && dir != 0; i++)
+        {
+            if(isWhite(img, x, y + i))
+            {
+                break;
+            }
+            score2++;
+        }
+        int score3 = 0;
+        for(int i = 1; i < 50 && dir != 1; i++)
+        {
+            if(isWhite(img, x - i, y))
+            {
+                break;
+            }
+            score3++;
         }
 
-        oldX = x;
-        oldY = y;
+        int newX = x;
+        int newY = y;
 
-        move(0, x, newX, scale);
-        move(1, y, newY, scale);
+        if(score0 >= score1 && score0 >= score2 && score0 >= score3)
+        {
+            newY -= score0;
+            dir = 0;
+            for(int i = 1; i <= score0; i++)
+            {
+                setPixel(prnBits, x, y - i, color);
+            }
+        }
+        else if(score1 >= score2 && score1 >= score3)
+        {
+            newX += score1;
+            dir = 1;
+            for(int i = 1; i <= score1; i++)
+            {
+                setPixel(prnBits, x + i, y, color);
+            }
+        }
+        else if(score2 >= score3)
+        {
+            newY += score2;
+            dir = 2;
+            for(int i = 1; i <= score2; i++)
+            {
+                setPixel(prnBits, x, y + i, color);
+            }
+        }
+        else
+        {
+            for(int i = 1; i <= score3; i++)
+            {
+                setPixel(prnBits, x - i, y, color);
+            }
+            newX -= score3;
+            dir = 3;
+        }
 
-        x = newX;
-        y = newY;
-        setPixel(prnBits, x, y, color);
+        ui->tbPos->setText(QString::number(newX) + "," + QString::number(newY));
 
         update();
         QApplication::processEvents();
+
+        move(0, x, newX, scale, findPos);
+        move(1, y, newY, scale, findPos);
+
+        x = newX;
+        y = newY;
 
         if(x == left && y == top)
         {
             color = color ? 0 : 1;
             port.write("a2 p0 t30 m ");
+        }
+
+        if(x == findX && y == findY)
+        {
+            findPos = false;    // found pos, we can start real moving
         }
     }
 }

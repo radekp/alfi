@@ -58,7 +58,7 @@ void setup()   {
 
 
   // initialize the serial communication
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   cmd = 0;
   bufPos = 0;
