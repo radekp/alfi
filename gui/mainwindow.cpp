@@ -65,14 +65,107 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+static int getCoord(QString str)
+{
+    QStringList list = str.split('.');
+    int n = list.at(0).toInt() * 1000;
+    if(list.count() == 1)
+    {
+        return n;
+    }
+    QString mStr = list.at(1);
+    int m = mStr.toInt();
+    for(int i = mStr.length();;)
+    {
+        if(i == 3)
+        {
+            if(str.indexOf('-') >= 0)
+            {
+                return n - m;
+            }
+            return n + m;
+        }
+        if(i > 3)
+        {
+            m /= 10;
+            i--;
+        }
+        if(i < 3)
+        {
+            m *= 10;
+            i++;
+        }
+    }
+}
+
 void MainWindow::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
+
+    QFile f("pcb.svg");
+    if(!f.open(QFile::ReadOnly))
+    {
+        ui->tbSerial->append(f.errorString());
+        return;
+    }
+
+    qDebug() << "=================================";
+    
+    QRegExp rxy("d=\"([mM]) (-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
+    QRegExp rwh("(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
+    for(;;)
+    {
+        QByteArray line = f.readLine();
+        if(line.isEmpty())
+        {
+            break;
+        }
+        int pos = rxy.indexIn(line);
+        if(pos < 0)
+        {
+            continue;
+        }
+        qDebug() << "line=" << line;
+
+        QString capxy = rxy.cap(0);
+        int x = getCoord(rxy.cap(2));
+        int y = getCoord(rxy.cap(3));
+
+        line.remove(0, pos + capxy.length());
+
+        for(;;)
+        {
+            pos = rwh.indexIn(line);
+            if(pos < 0)
+            {
+                break;
+            }
+
+            QString capwh = rwh.cap(0);
+            int w = getCoord(rwh.cap(1));
+            int h = getCoord(rwh.cap(2));
+
+            p.drawLine(x / 1000,
+                       y / 1000 - 500,
+                       (x + w) / 1000,
+                       (y + h) / 1000 - 500);
+
+            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
+
+            x += w;
+            y += h;
+
+            line.remove(0, pos + capwh.length());
+            qDebug() << "rem=" << line;
+        }
+    }
+    return;
+
     if(img.isNull())
     {
         return;
     }
-//    p.drawImage(0, 50, img);
+    p.drawImage(0, 50, img);
     p.drawImage(0, 100, prn);
 }
 

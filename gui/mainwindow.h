@@ -13,6 +13,7 @@
 #include <QDir>
 #include <QMessageBox>
 #include <QDebug>
+#include <QRegExp>
 
 #include "qserialport.h"
 
