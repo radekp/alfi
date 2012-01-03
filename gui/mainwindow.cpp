@@ -65,6 +65,28 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+uchar getSetPixel(uchar *bits, int x, int y, bool get, uchar val)
+{
+    int index = y * (PRN_WIDTH + 1) + x;
+    if(get)
+    {
+        return bits[index];
+    }
+    bits[index] = val;
+    return 0;
+}
+
+uchar getPixel(uchar *bits, int x, int y)
+{
+    return getSetPixel(bits, x, y, true, 0);
+}
+
+void setPixel(uchar *bits, int x, int y, uchar val)
+{
+    getSetPixel(bits, x, y, false, val);
+}
+
+
 static int getCoord(QString str)
 {
     QStringList list = str.split('.');
@@ -94,6 +116,51 @@ static int getCoord(QString str)
         {
             m *= 10;
             i++;
+        }
+    }
+}
+
+static void drawLine(uchar *bits, int x0, int y0, int x1, int y1)
+{
+    int dx = abs(x1-x0);
+    int dy = abs(y1-y0);
+    int sx, sy;
+    if(x0 < x1)
+    {
+        sx = 1;
+    }
+    else
+    {
+        sx = -1;
+    }
+    if(y0 < y1)
+    {
+        sy = 1;
+    }
+    else
+    {
+        sy = -1;
+    }
+    int err = dx-dy;
+    int e2;
+
+    for(;;)
+    {
+        setPixel(bits, x0, y0, 1);
+        if(x0 == x1 && y0 == y1)
+        {
+            break;
+        }
+        e2 = 2*err;
+        if(e2 > -dy)
+        {
+            err = err - dy;
+            x0 = x0 + sx;
+        }
+        if(e2 <  dx)
+        {
+            err = err + dx;
+            y0 = y0 + sy;
         }
     }
 }
@@ -145,10 +212,16 @@ void MainWindow::paintEvent(QPaintEvent *)
             int w = getCoord(rwh.cap(1));
             int h = getCoord(rwh.cap(2));
 
-            p.drawLine(x / 1000,
-                       y / 1000 - 500,
-                       (x + w) / 1000,
-                       (y + h) / 1000 - 500);
+//            p.drawLine(x / 1000,
+//                       y / 1000 - 500,
+//                       (x + w) / 1000,
+//                       (y + h) / 1000 - 500);
+
+            drawLine(prnBits,
+                     x / 1000,
+                     y / 1000 - 500,
+                     (x + w) / 1000,
+                     (y + h) / 1000 - 500);
 
             qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
 
@@ -159,6 +232,7 @@ void MainWindow::paintEvent(QPaintEvent *)
             qDebug() << "rem=" << line;
         }
     }
+    p.drawImage(0, 100, prn);
     return;
 
     if(img.isNull())
@@ -173,27 +247,6 @@ void redraw(MainWindow *win)
 {
     win->update();
     QApplication::processEvents();
-}
-
-uchar getSetPixel(uchar *bits, int x, int y, bool get, uchar val)
-{
-    int index = y * (PRN_WIDTH + 1) + x;
-    if(get)
-    {
-        return bits[index];
-    }
-    bits[index] = val;
-    return 0;
-}
-
-uchar getPixel(uchar *bits, int x, int y)
-{
-    return getSetPixel(bits, x, y, true, 0);
-}
-
-void setPixel(uchar *bits, int x, int y, uchar val)
-{
-    getSetPixel(bits, x, y, false, val);
 }
 
 void MainWindow::oneUp()
