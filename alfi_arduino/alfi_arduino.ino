@@ -17,9 +17,14 @@
 
 */
 
+int cx;
+int tx;
+int cy;
+int ty;
+int cz;
+int tz;
+
 int axis;       // selected axis number
-int cpos;       // absolute current position - used to compute which pin will be next
-int tpos;       // absolute target position 
 int sdelay;     // start delay - it decreases with each motor step until it reaches tdelay
 int tdelay;     // target deleay between steps (smaller number is higher speed)
 int delayStep;  // with this step is delay increased/decreased
@@ -31,6 +36,128 @@ char buf[9];
 int bufPos;
 int val;
 int limit;      // last value of limit switch
+
+
+// One step to x
+void moveX()
+{
+  int r = cx % 8;
+
+  // 3 2 4 5
+  switch(r)
+  {
+    case 0: digitalWrite(2, LOW); digitalWrite(5, LOW); digitalWrite(3, HIGH); break;                                        // 3
+    case 1:                                             digitalWrite(2, HIGH); digitalWrite(3, HIGH); break;                 // 32
+    case 2: digitalWrite(3, LOW); digitalWrite(4, LOW); digitalWrite(2, HIGH); break;                                        // 2
+    case 3:                                             digitalWrite(2, HIGH); digitalWrite(4, HIGH); break;                 // 24
+    case 4: digitalWrite(2, LOW); digitalWrite(5, LOW); digitalWrite(4, HIGH); break;                                        // 4
+    case 5:                                             digitalWrite(4, HIGH); digitalWrite(5, HIGH); break;                 // 45
+    case 6: digitalWrite(4, LOW); digitalWrite(3, LOW); digitalWrite(5, HIGH); break;                                        // 5
+    case 7:                                             digitalWrite(5, HIGH); digitalWrite(3, HIGH); break;                 // 53
+  }
+  delayMicroseconds(cdelay);
+  limit = analogRead(A2);    // read the limit switch
+}
+
+// One step to y
+void moveY()
+{
+  int r = cy % 8;
+
+  // 8 7 9 6
+  switch(r)
+  {
+    case 0: digitalWrite(6, LOW); digitalWrite(7, LOW); digitalWrite(8, HIGH); break;                                        // 8
+    case 1:                                             digitalWrite(8, HIGH); digitalWrite(7, HIGH); break;                 // 87
+    case 2: digitalWrite(8, LOW); digitalWrite(9, LOW); digitalWrite(7, HIGH); break;                                        // 7
+    case 3:                                             digitalWrite(7, HIGH); digitalWrite(9, HIGH); break;                 // 79
+    case 4: digitalWrite(7, LOW); digitalWrite(6, LOW); digitalWrite(9, HIGH); break;                                        // 9
+    case 5:                                             digitalWrite(9, HIGH); digitalWrite(6, HIGH); break;                 // 96
+    case 6: digitalWrite(9, LOW); digitalWrite(8, LOW); digitalWrite(6, HIGH); break;                                        // 6
+    case 7:                                             digitalWrite(6, HIGH); digitalWrite(8, HIGH); break;                 // 68
+  }
+  delayMicroseconds(cdelay);
+  limit = analogRead(A2);    // read the limit switch
+}
+
+// One step to z
+void moveZ()
+{
+  int r = cz % 8;
+
+  // 13 12 10 11
+  switch(r)
+  {
+    case 0: digitalWrite(11, LOW); digitalWrite(12, LOW); digitalWrite(13, HIGH); break;                                        // 13
+    case 1:                                               digitalWrite(13, HIGH); digitalWrite(12, HIGH); break;                // 13 12
+    case 2: digitalWrite(13, LOW); digitalWrite(10, LOW); digitalWrite(12, HIGH); break;                                        // 12
+    case 3:                                               digitalWrite(12, HIGH); digitalWrite(10, HIGH); break;                // 12 10
+    case 4: digitalWrite(12, LOW); digitalWrite(11, LOW); digitalWrite(10, HIGH); break;                                        // 10
+    case 5:                                               digitalWrite(10, HIGH); digitalWrite(11, HIGH); break;                // 10 11
+    case 6: digitalWrite(10, LOW); digitalWrite(13, LOW); digitalWrite(11, HIGH); break;                                        // 11
+    case 7:                                               digitalWrite(11, HIGH); digitalWrite(13, HIGH); break;                // 11 13
+  }
+  delayMicroseconds(cdelay);
+  limit = analogRead(A2);    // read the limit switch
+}
+
+// draw line using Bresenham's line algorithm
+void drawLine(int x0, int y0, int x1, int y1)
+{
+    int dx = abs(x1-x0);
+    int dy = abs(y1-y0);
+    int sx, sy;
+    if(x0 < x1)
+    {
+        sx = 1;
+    }
+    else
+    {
+        sx = -1;
+    }
+    if(y0 < y1)
+    {
+        sy = 1;
+    }
+    else
+    {
+        sy = -1;
+    }
+    int err = dx-dy;
+    int e2;
+
+    for(;;)
+    {
+        // move to x0,y0
+        if(cx != x0)
+        {
+          cx = x0;
+          moveX();
+        }
+        if(cy != y0)
+        {
+          cy = y0;
+          moveY();
+        }
+        
+        if(x0 == x1 && y0 == y1)
+        {
+            break;
+        }
+        e2 = 2*err;
+        if(e2 > -dy)
+        {
+            err = err - dy;
+            x0 = x0 + sx;
+        }
+        if(e2 <  dx)
+        {
+            err = err + dx;
+            y0 = y0 + sy;
+        }
+    }
+}
+
 
 void setup()   {                
 
@@ -63,8 +190,7 @@ void setup()   {
   cmd = 0;
   bufPos = 0;
   axis = 0;
-  cpos = 0;
-  tpos = 0;  
+  cx = cy = cz = tx = ty = tz = 0;
   sdelay = 6000;
   cdelay = 6000;
   tdelay = 3000;
@@ -73,11 +199,12 @@ void setup()   {
   Serial.println("arduino init ok");
 }
 
+
 void loop()                     
 { 
   if(cmd == 'M')
   {
-    if(cpos == tpos)
+    if(cx == tx && cy == ty && cz == tz)
     {
       Serial.print("done ");
       Serial.println(val);
@@ -88,150 +215,20 @@ void loop()
     int oldLimit = limit;
   
     // motion handling
-    if(axis == 0)
+    if(cx != tx || cy != ty)
     {
-      if(cpos < tpos)  // 3 2 4 5 ->
-      {
-        digitalWrite(5, HIGH);
-        digitalWrite(3, HIGH);    // 53
-        delayMicroseconds(cdelay);
-        digitalWrite(5, LOW);     // 3
-        delayMicroseconds(cdelay);
-        digitalWrite(2, HIGH);    // 32
-        delayMicroseconds(cdelay);
-        digitalWrite(3, LOW);     // 2
-        delayMicroseconds(cdelay);
-        digitalWrite(4, HIGH);    // 24
-        delayMicroseconds(cdelay);
-        digitalWrite(2, LOW);     // 4
-        delayMicroseconds(cdelay);      
-        digitalWrite(5, HIGH);    // 45
-        delayMicroseconds(cdelay);
-        digitalWrite(4, LOW);     // 5
-  
-        cpos++;
-      }
-      else  // <- 4 2 3 5
-      {
-        digitalWrite(5, HIGH);
-        digitalWrite(4, HIGH);    // 54
-        delayMicroseconds(cdelay);
-        digitalWrite(5, LOW);     // 4
-        delayMicroseconds(cdelay);
-        digitalWrite(2, HIGH);    // 42
-        delayMicroseconds(cdelay);
-        digitalWrite(4, LOW);     // 2
-        delayMicroseconds(cdelay);
-        digitalWrite(3, HIGH);    // 23
-        delayMicroseconds(cdelay);
-        digitalWrite(2, LOW);     // 3
-        delayMicroseconds(cdelay);
-        digitalWrite(5, HIGH);    // 35
-        delayMicroseconds(cdelay);
-        digitalWrite(3, LOW);     // 5
-        
-        cpos--;
-      }
-      limit = analogRead(A2);    // read the limit switch
+      drawLine(cx, cy, tx, ty);
+    }
+    while(cz < tz)
+    {
+      cz++;
+      moveZ();
+    }
+    while(cz > tz)
+    {
+      cz--;
+      moveZ();
     }    
-    else if(axis == 1)
-    {
-      if(cpos < tpos)  // ^ 8 7 9 6
-      {
-        digitalWrite(6, HIGH);
-        digitalWrite(8, HIGH);  // 68
-        delayMicroseconds(cdelay);
-        digitalWrite(6, LOW);   // 8
-        delayMicroseconds(cdelay);
-        digitalWrite(7, HIGH);  // 87
-        delayMicroseconds(cdelay);
-        digitalWrite(8, LOW);   // 7
-        delayMicroseconds(cdelay);
-        digitalWrite(9, HIGH);  // 79
-        delayMicroseconds(cdelay);
-        digitalWrite(7, LOW);   // 9
-        delayMicroseconds(cdelay);
-        digitalWrite(6, HIGH);  // 96
-        delayMicroseconds(cdelay);
-        digitalWrite(9, LOW);   // 6
-        
-        cpos++;
-      }
-      else    // 9 7 8 6
-      {
-        digitalWrite(6, HIGH);
-        digitalWrite(9, HIGH);  // 69
-        delayMicroseconds(cdelay);        
-        digitalWrite(6, LOW);   // 9
-        delayMicroseconds(cdelay);
-        digitalWrite(7, HIGH);  // 97
-        delayMicroseconds(cdelay);
-        digitalWrite(9, LOW);   // 7
-        delayMicroseconds(cdelay);
-        digitalWrite(8, HIGH);  // 78
-        delayMicroseconds(cdelay);
-        digitalWrite(7, LOW);   // 8
-        delayMicroseconds(cdelay);
-        digitalWrite(6, HIGH);  // 86
-        delayMicroseconds(cdelay);
-        digitalWrite(8, LOW);   // 6
-        
-        cpos--;
-      }
-      limit = analogRead(A0);    // read the limit switch
-    }
-    else if(axis == 2)
-    {
-      if(cpos < tpos)  // 13 12 10 11
-      {
-        digitalWrite(11, HIGH);
-        digitalWrite(13, HIGH);   // 11 13
-        delayMicroseconds(cdelay);
-        digitalWrite(11, LOW);    // 13
-        delayMicroseconds(cdelay);
-        digitalWrite(12, HIGH);   // 13 12
-        delayMicroseconds(cdelay);
-        digitalWrite(13, LOW);    // 12
-        delayMicroseconds(cdelay);
-        digitalWrite(10, HIGH);   // 12 10
-        delayMicroseconds(cdelay);
-        digitalWrite(12, LOW);    // 10
-        delayMicroseconds(cdelay);  
-        digitalWrite(11, HIGH);   // 10 11
-        delayMicroseconds(cdelay);
-        digitalWrite(10, LOW);    // 11
-  
-        cpos++;
-      }
-      else          // 10 12 13 11
-      {
-        digitalWrite(11, HIGH);
-        digitalWrite(10, HIGH);   // 11 10
-        delayMicroseconds(cdelay);
-        digitalWrite(11, LOW);    // 10
-        delayMicroseconds(cdelay);
-        digitalWrite(12, HIGH);   // 10 12
-        delayMicroseconds(cdelay);
-        digitalWrite(10, LOW);    // 12
-        delayMicroseconds(cdelay);
-        digitalWrite(13, HIGH);   // 12 13
-        delayMicroseconds(cdelay);
-        digitalWrite(12, LOW);    // 13
-        delayMicroseconds(cdelay);
-        digitalWrite(11, HIGH);   // 13 11
-        delayMicroseconds(cdelay);
-        digitalWrite(13, LOW);    // 11
-        
-        cpos--;
-      }
-      limit = analogRead(A1);    // read the limit switch
-    }
-    else
-    {
-      Serial.println("error: unknown axis");
-      cmd = 0;
-      return;
-    }
     
     // stop motion if limit switch value changes
     if(oldLimit > 0)
@@ -247,22 +244,6 @@ void loop()
         return;
       }
     }
-    
-    // Handle acceleration/decceleration
-    int deltaX = abs(tpos - cpos);
-    int deltaD = (sdelay - tdelay) / delayStep;
-    if(deltaX > deltaD)
-    {
-      if(cdelay > tdelay)
-      {
-        cdelay -= delayStep;  // we are far from target, we can accelerate
-      }
-    } 
-    else if(cdelay < sdelay)
-    {
-      cdelay += delayStep;    // we are closing to target so deccelerate
-    }
-    return;    
   }
 
   // if not moving, stop current on all motor wirings
@@ -323,11 +304,33 @@ void loop()
     }
     else if(cmd == 'p')
     {
-        cpos = val;
+      if(axis == 0)
+      {
+        cx = val;
+      }
+      else if(axis = 1)
+      {
+        cy = val;
+      }
+      else
+      {
+        cz = val;
+      }
     }
     else if(cmd == 't')
     {
-        tpos = val;
+      if(axis == 0)
+      {
+        tx = val;
+      }
+      else if(axis = 1)
+      {
+        ty = val;
+      }
+      else
+      {
+        tz = val;
+      }
     }
     else if(cmd == 's')
     {
