@@ -120,7 +120,7 @@ static int getCoord(QString str)
     }
 }
 
-static void drawLine(uchar *bits, int x0, int y0, int x1, int y1)
+static void drawLine(uchar *bits, int x0, int y0, int x1, int y1, int color)
 {
     int dx = abs(x1-x0);
     int dy = abs(y1-y0);
@@ -146,7 +146,7 @@ static void drawLine(uchar *bits, int x0, int y0, int x1, int y1)
 
     for(;;)
     {
-        setPixel(bits, x0, y0, 1);
+        setPixel(bits, x0, y0, color);
         if(x0 == x1 && y0 == y1)
         {
             break;
@@ -168,70 +168,6 @@ static void drawLine(uchar *bits, int x0, int y0, int x1, int y1)
 void MainWindow::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
-
-    QFile f("pcb.svg");
-    if(!f.open(QFile::ReadOnly))
-    {
-        ui->tbSerial->append(f.errorString());
-        return;
-    }
-
-    qDebug() << "=================================";
-    
-    QRegExp rxy("d=\"([mM]) (-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
-    QRegExp rwh("(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
-    for(;;)
-    {
-        QByteArray line = f.readLine();
-        if(line.isEmpty())
-        {
-            break;
-        }
-        int pos = rxy.indexIn(line);
-        if(pos < 0)
-        {
-            continue;
-        }
-        qDebug() << "line=" << line;
-
-        QString capxy = rxy.cap(0);
-        int x = getCoord(rxy.cap(2));
-        int y = getCoord(rxy.cap(3));
-
-        line.remove(0, pos + capxy.length());
-
-        for(;;)
-        {
-            pos = rwh.indexIn(line);
-            if(pos < 0)
-            {
-                break;
-            }
-
-            QString capwh = rwh.cap(0);
-            int w = getCoord(rwh.cap(1));
-            int h = getCoord(rwh.cap(2));
-
-//            p.drawLine(x / 1000,
-//                       y / 1000 - 500,
-//                       (x + w) / 1000,
-//                       (y + h) / 1000 - 500);
-
-            drawLine(prnBits,
-                     x / 1000,
-                     y / 1000 - 500,
-                     (x + w) / 1000,
-                     (y + h) / 1000 - 500);
-
-            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
-
-            x += w;
-            y += h;
-
-            line.remove(0, pos + capwh.length());
-            qDebug() << "rem=" << line;
-        }
-    }
     p.drawImage(0, 100, prn);
     return;
 
@@ -1000,140 +936,271 @@ static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int ol
 }
 
 void MainWindow::on_bMill_clicked()
-{
-    int scale = 1;
-    int x = 0;
-    int y = 0;
-    int top, left;
-
-    // Find position in case serial communication was interrupted
-    int findX = -1;
-    int findY = -1;
-    QString posStr = ui->tbPos->text();
-    bool findPos = posStr.length() > 0;
-    if(findPos)
+{    
+    QFile f("pcb.svg");
+    if(!f.open(QFile::ReadOnly))
     {
-        QStringList list = posStr.split(',');
-        QString strX = list.at(0);
-        QString strY = list.at(1);
-        findX = strX.toInt();
-        findY = strY.toInt();
+        ui->tbSerial->append(f.errorString());
+        return;
     }
 
-    findTopLeft(img, prnBits, &left, &top);
+    static int x1[65535];
+    static int y1[65535];
+    static int x2[65535];
+    static int y2[65535];
+    int count = 0;
 
-    move(0, 0, left, scale, findPos);
-    move(1, 0, top, scale, findPos);
-    setPixel(prnBits, left, top, 1);
+    QRegExp rxy("d=\"([mM]) (-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
+    QRegExp rwh("(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
+    QRegExp rsci("[0123456789\\.-]+e[0123456789\\.-]+");     // scientific format, e.g. -8e-4
 
-    x = left;
-    y = top;
 
-    //
-    //    0
-    // 3     1
-    //    2
-    int dir = -1;
-    int color = 1;
     for(;;)
     {
-        int score0 = 0;
-        for(int i = 1; i < 50 && dir != 2; i++)
+        QByteArray line = f.readLine();
+        if(line.isEmpty())
         {
-            if(isWhite(img, x, y - i))
+            break;
+        }
+        line = line.trimmed();
+
+        // Convert scientific small numbers to 0
+        int pos = rsci.indexIn(line);
+        if(pos >= 0)
+        {
+            line.replace(rsci.cap(0), "0");
+            qDebug() << "removed scientific, new line=" << line;
+        }
+
+        pos = rxy.indexIn(line);
+        if(pos < 0)
+        {
+            continue;
+        }
+        qDebug() << "line[" << count << "]=" << line;
+
+        QString capxy = rxy.cap(0);
+        int x = getCoord(rxy.cap(2));
+        int y = getCoord(rxy.cap(3));
+
+        line.remove(0, pos + capxy.length());
+
+        for(;;)
+        {
+            pos = rwh.indexIn(line);
+            if(pos < 0)
             {
                 break;
             }
-            score0++;
-        }
-        int score1 = 0;
-        for(int i = 1; i < 50 && dir != 3; i++)
-        {
-            if(isWhite(img, x + i, y))
-            {
-                break;
-            }
-            score1++;
-        }
-        int score2 = 0;
-        for(int i = 1; i < 50 && dir != 0; i++)
-        {
-            if(isWhite(img, x, y + i))
-            {
-                break;
-            }
-            score2++;
-        }
-        int score3 = 0;
-        for(int i = 1; i < 50 && dir != 1; i++)
-        {
-            if(isWhite(img, x - i, y))
-            {
-                break;
-            }
-            score3++;
-        }
 
-        int newX = x;
-        int newY = y;
+            QString capwh = rwh.cap(0);
+            int w = getCoord(rwh.cap(1));
+            int h = getCoord(rwh.cap(2));
 
-        if(score0 >= score1 && score0 >= score2 && score0 >= score3)
-        {
-            newY -= score0;
-            dir = 0;
-            for(int i = 1; i <= score0; i++)
-            {
-                setPixel(prnBits, x, y - i, color);
-            }
+            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
+
+            x1[count] = x;
+            y1[count] = y;
+            x2[count] = x + w;
+            y2[count] = y + h;
+            count++;            
+
+//            drawLine(prnBits,
+//                     x / 1000,
+//                     y / 1000 - 500,
+//                     (x + w) / 1000,
+//                     (y + h) / 1000 - 500);
+
+            x += w;
+            y += h;
+
+            line.remove(0, pos + capwh.length());
+            qDebug() << "rem=" << line;
         }
-        else if(score1 >= score2 && score1 >= score3)
-        {
-            newX += score1;
-            dir = 1;
-            for(int i = 1; i <= score1; i++)
-            {
-                setPixel(prnBits, x + i, y, color);
-            }
-        }
-        else if(score2 >= score3)
-        {
-            newY += score2;
-            dir = 2;
-            for(int i = 1; i <= score2; i++)
-            {
-                setPixel(prnBits, x, y + i, color);
-            }
-        }
-        else
-        {
-            for(int i = 1; i <= score3; i++)
-            {
-                setPixel(prnBits, x - i, y, color);
-            }
-            newX -= score3;
-            dir = 3;
-        }
+    }
 
-        ui->tbPos->setText(QString::number(newX) + "," + QString::number(newY));
+    // Current anb target positions
+    int cx = x1[0];
+    int cy = y1[0];
+    int tx = x2[0];
+    int ty = y2[0];
+    int color = 1;
 
-        update();
-        QApplication::processEvents();
+    for(;;)
+    {
+        drawLine(prnBits,
+                 cx / 1000,
+                 cy / 1000 - 500,
+                 tx / 1000,
+                 ty / 1000 - 500,
+                 color);
 
-        move(0, x, newX, scale, findPos);
-        move(1, y, newY, scale, findPos);
+        cx = tx;
+        cy = ty;
 
-        x = newX;
-        y = newY;
-
-        if(x == left && y == top)
+        if(cx == x1[0] && cy == y1[0])
         {
             color = color ? 0 : 1;
             port.write("a2 p0 t30 m ");
         }
 
-        if(x == findX && y == findY)
+        update();
+        QApplication::processEvents();
+        //Sleeper::msleep(1);
+
+        // Find nearest start of line
+        int ndist = 0x7fffffff;
+        int nindex = -1;
+        for(int i = 0; i < count; i++)
         {
-            findPos = false;    // found pos, we can start real moving
+            int dist = abs(x1[i] - cx) + abs(y1[i] - cy);
+            if(dist > ndist)
+            {
+                continue;
+            }
+            ndist = dist;
+            nindex = i;
         }
+
+        tx = x2[nindex];
+        ty = y2[nindex];
     }
+
+
+
+//    int scale = 1;
+//    int x = 0;
+//    int y = 0;
+//    int top, left;
+
+//    // Find position in case serial communication was interrupted
+//    int findX = -1;
+//    int findY = -1;
+//    QString posStr = ui->tbPos->text();
+//    bool findPos = posStr.length() > 0;
+//    if(findPos)
+//    {
+//        QStringList list = posStr.split(',');
+//        QString strX = list.at(0);
+//        QString strY = list.at(1);
+//        findX = strX.toInt();
+//        findY = strY.toInt();
+//    }
+
+//    findTopLeft(img, prnBits, &left, &top);
+
+//    move(0, 0, left, scale, findPos);
+//    move(1, 0, top, scale, findPos);
+//    setPixel(prnBits, left, top, 1);
+
+//    x = left;
+//    y = top;
+
+//    //
+//    //    0
+//    // 3     1
+//    //    2
+//    int dir = -1;
+//    int color = 1;
+//    for(;;)
+//    {
+//        int score0 = 0;
+//        for(int i = 1; i < 50 && dir != 2; i++)
+//        {
+//            if(isWhite(img, x, y - i))
+//            {
+//                break;
+//            }
+//            score0++;
+//        }
+//        int score1 = 0;
+//        for(int i = 1; i < 50 && dir != 3; i++)
+//        {
+//            if(isWhite(img, x + i, y))
+//            {
+//                break;
+//            }
+//            score1++;
+//        }
+//        int score2 = 0;
+//        for(int i = 1; i < 50 && dir != 0; i++)
+//        {
+//            if(isWhite(img, x, y + i))
+//            {
+//                break;
+//            }
+//            score2++;
+//        }
+//        int score3 = 0;
+//        for(int i = 1; i < 50 && dir != 1; i++)
+//        {
+//            if(isWhite(img, x - i, y))
+//            {
+//                break;
+//            }
+//            score3++;
+//        }
+
+//        int newX = x;
+//        int newY = y;
+
+//        if(score0 >= score1 && score0 >= score2 && score0 >= score3)
+//        {
+//            newY -= score0;
+//            dir = 0;
+//            for(int i = 1; i <= score0; i++)
+//            {
+//                setPixel(prnBits, x, y - i, color);
+//            }
+//        }
+//        else if(score1 >= score2 && score1 >= score3)
+//        {
+//            newX += score1;
+//            dir = 1;
+//            for(int i = 1; i <= score1; i++)
+//            {
+//                setPixel(prnBits, x + i, y, color);
+//            }
+//        }
+//        else if(score2 >= score3)
+//        {
+//            newY += score2;
+//            dir = 2;
+//            for(int i = 1; i <= score2; i++)
+//            {
+//                setPixel(prnBits, x, y + i, color);
+//            }
+//        }
+//        else
+//        {
+//            for(int i = 1; i <= score3; i++)
+//            {
+//                setPixel(prnBits, x - i, y, color);
+//            }
+//            newX -= score3;
+//            dir = 3;
+//        }
+
+//        ui->tbPos->setText(QString::number(newX) + "," + QString::number(newY));
+
+//        update();
+//        QApplication::processEvents();
+
+//        move(0, x, newX, scale, findPos);
+//        move(1, y, newY, scale, findPos);
+
+//        x = newX;
+//        y = newY;
+
+//        if(x == left && y == top)
+//        {
+//            color = color ? 0 : 1;
+//            port.write("a2 p0 t30 m ");
+//        }
+
+//        if(x == findX && y == findY)
+//        {
+//            findPos = false;    // found pos, we can start real moving
+//        }
+//    }
 }
