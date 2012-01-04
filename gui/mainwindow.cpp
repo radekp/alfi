@@ -207,9 +207,9 @@ static void drillingPath(qint64 ax, qint64 ay,
                          )
 {
     // orthogonal line r pixels long
-    int w = by - ay;
-    int h = ax - bx;
-    int c = (int) sqrt((1000000 * r * r) / (w * w + h * h));
+    qint64 w = by - ay;
+    qint64 h = ax - bx;
+    qint64 c = (qint64) sqrt((1000000 * r * r) / (w * w + h * h));
     w = (c * w) / 1000;
     h = (c * h) / 1000;
     x0 = ax + w;
@@ -987,6 +987,15 @@ static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int ol
 
 void MainWindow::on_bMill_clicked()
 {
+//    for(;;)
+//    {
+//        move(0, 0, 5000);
+//        move(1, 0, 5000);
+//        move(0, 5000, 0);
+//        move(1, 5000, 0);
+//        move(2, 0, 200);
+//    }
+
     QFile f("pcb.svg");
     if(!f.open(QFile::ReadOnly))
     {
@@ -1099,25 +1108,29 @@ void MainWindow::on_bMill_clicked()
 
         // We need to take into account driller radius and shift the line
         // accordingly
-        drillingPath(cx / 10, cy / 10, tx / 10, ty / 10,
+        drillingPath(cx, cy, tx, ty,
                      0, 0, 0, 0,
-                     1000,                    // driller radius
+                     9525,                    // driller radius
                      cX, cY, tX, tY,
                      dummy, dummy, dummy, dummy);
 
         drawLine(prnBits,
-                 cX / 100,
-                 cY / 100 - 500,
-                 tX / 100,
-                 tY / 100 - 500,
+                 cX / 1000,
+                 cY / 1000 - 500,
+                 tX / 1000,
+                 tY / 1000 - 500,
                  color);
 
 
-        // steps = svg coord * 0.0192520923721
-        int stepsCX = (cX * 19252) / 1000000;
-        int stepsCY = (cY * 19252) / 1000000;
-        int stepsTX = (tX * 19252) / 1000000;
-        int stepsTY = (tY * 19252) / 1000000;
+        // 5000 steps = 43.6 mm
+        // x steps    = 95.3 mm
+        // x = 10,928.8990826 steps
+        // 1 step = 51.9126396641 svg points
+        // steps = svg coord / 51.9126396641
+        int stepsCX = (cX * 1000) / 51912;
+        int stepsCY = (cY * 1000) / 51912;
+        int stepsTX = (tX * 1000) / 51912;
+        int stepsTY = (tY * 1000) / 51912;
 
         move(0, stepsCX, stepsTX, 1, true);
         move(1, stepsCY, stepsTY, 1, false);
@@ -1130,7 +1143,7 @@ void MainWindow::on_bMill_clicked()
         if(cx == x1[0] && cy == y1[0])
         {
             color = color ? 0 : 1;
-            port.write("a2 p0 t200 m ");
+            move(2, 0, 200);
         }
 
         update();
