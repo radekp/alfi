@@ -60,7 +60,7 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), cmdNo(0)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), moveNo(0)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -582,22 +582,30 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
     return false;
 }
 
-void MainWindow::move(int axis, int pos, int target, int scale, bool fake)
+void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
 {
-    if(fake)
-    {
-        return;
-    }
-
     QString cmd = "a" + QString::number(axis) +
                   " p" + QString::number(pos * scale) +
-                  " t" + QString::number(target * scale) +
-                  " m" + QString::number(cmdNo) + " ";
+                  " t" + QString::number(target * scale);
+
+    if(queue)
+    {
+        cmd += " ";
+    }
+    else
+    {
+        cmd += " m" + QString::number(moveNo) + " ";
+    }
 
     qDebug() << cmd;
     port.write(cmd.toAscii());
 
-    QString expect = "done " + QString::number(cmdNo);
+    if(queue)
+    {
+        return;
+    }
+
+    QString expect = "done " + QString::number(moveNo);
     QString reply;
     for(;;)
     {
@@ -620,7 +628,7 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool fake)
             QMessageBox::information(this, "Limit reached", reply);
         }
     }
-    cmdNo++;
+    moveNo++;
 }
 
 void MainWindow::loadImg()
@@ -953,7 +961,7 @@ void MainWindow::on_bYPlus_clicked()
 
 void MainWindow::on_bZMinus_clicked()
 {
-    port.write("a2 p30 t200 m ");
+    port.write("a2 p200 t0 m ");
 }
 
 void MainWindow::on_bZPlus_clicked()
@@ -1111,8 +1119,8 @@ void MainWindow::on_bMill_clicked()
         int stepsTX = (tX * 19252) / 1000000;
         int stepsTY = (tY * 19252) / 1000000;
 
-        move(0, stepsCX, stepsTX, 1, 0);
-        move(1, stepsCY, stepsTY, 1, 0);
+        move(0, stepsCX, stepsTX, 1, true);
+        move(1, stepsCY, stepsTY, 1, false);
 
         cx = tx;
         cy = ty;
@@ -1122,7 +1130,7 @@ void MainWindow::on_bMill_clicked()
         if(cx == x1[0] && cy == y1[0])
         {
             color = color ? 0 : 1;
-            port.write("a2 p0 t30 m ");
+            port.write("a2 p0 t200 m ");
         }
 
         update();

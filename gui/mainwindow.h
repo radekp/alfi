@@ -52,7 +52,7 @@ public:
     QString imgFile;
     int penX;
     int penY;
-    int cmdNo;
+    int moveNo;
     QSerialPort port;
 
     void handleArrowClick(Direction);
@@ -66,7 +66,7 @@ public:
     void down(int times);
     void left(int times);
     void right(int times);
-    void move(int axis, int pos, int target, int scale = 1, bool fake = false);
+    void move(int axis, int pos, int target, int scale = 1, bool queue = false);
 
 private slots:
     void on_bMill_clicked();
