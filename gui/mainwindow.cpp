@@ -47,6 +47,18 @@ void closeOutFile()
     outFile = NULL;
 }
 
+static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
+{
+    img = QImage(width, height, QImage::Format_Indexed8);
+
+    img.setNumColors(2);
+    img.setColor(0, qRgb(255, 255, 255));
+    img.setColor(1, qRgb(0, 0, 0));
+
+    uchar *bits = *imgBits = img.bits();
+    memset(bits, 0, width * height);
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 115200), cmdNo(0)
 {
@@ -57,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     {
         ui->tbSerial->setText(port.errorString());
     }
+    MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
     readSerial();
 }
 
@@ -165,9 +178,61 @@ static void drawLine(uchar *bits, int x0, int y0, int x1, int y1, int color)
     }
 }
 
+// Compute drilling path A->B->C->D taking into account driller width.
+//
+//         | D
+//         |
+//  -------+ C
+//  A      B
+//
+// Step 1: parallel line to AB shifted by width (same for AD)
+//
+//
+//  E     F
+//  -------        H |   | D
+//                   |   |
+//  -------        G |   | C
+//  A     B
+
+
+static void drillingPath(qint64 ax, qint64 ay,
+                         qint64 bx, qint64 by,
+                         qint64 cx, qint64 cy,
+                         qint64 dx, qint64 dy,
+                         qint64 r,
+                         uchar *bits, int color,
+                         qint64 & x0, qint64 y0,
+                         qint64 & x1, qint64 y1,
+                         qint64 & x2, qint64 y2,
+                         qint64 & x3, qint64 y3
+                         )
+{
+    drawLine(bits, ax, ay, bx, by, color);
+    drawLine(bits, ax + 1, ay, bx + 1, by, color);
+
+    // orthogonal line r pixels long
+    int w = by - ay;
+    int h = ax - bx;
+    int c = (int) sqrt((1000000 * r * r) / (w * w + h * h));
+    w = (c * w) / 1000;
+    h = (c * h) / 1000;
+    x0 = ax + w;
+    y0 = ay + h;
+    x1 = bx + w;
+    y1 = by + h;
+    drawLine(bits, x0, y0, x1, y1, color);
+}
+
 void MainWindow::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
+
+    qint64 x1, x2, x3, x4;
+    qint64 y1, y2, y3, y4;
+    drillingPath(200, 200, 400, 400, 0, 0, 0, 0, 30,
+                 prnBits, 1,
+                 x1, y1, x2, y2, x3, y3, x4, y4);
+
     p.drawImage(0, 100, prn);
     return;
 
@@ -569,18 +634,6 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool fake)
     cmdNo++;
 }
 
-static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
-{
-    img = QImage(width, height, QImage::Format_Indexed8);
-
-    img.setNumColors(2);
-    img.setColor(0, qRgb(255, 255, 255));
-    img.setColor(1, qRgb(0, 0, 0));
-
-    uchar *bits = *imgBits = img.bits();
-    memset(bits, 0, width * height);
-}
-
 void MainWindow::loadImg()
 {
     //QMessageBox::information(this, "info", "loading " + imgFile);
@@ -944,8 +997,6 @@ void MainWindow::on_bMill_clicked()
         return;
     }
 
-    MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
-
     static int x1[65535];
     static int y1[65535];
     static int x2[65535];
@@ -957,6 +1008,7 @@ void MainWindow::on_bMill_clicked()
     QRegExp rsci("[0123456789\\.-]+e[0123456789\\.-]+");     // scientific format, e.g. -8e-4
 
 
+    // Read and parse svg file, results are in x1,x2,y1,y2 arrays
     for(;;)
     {
         QByteArray line = f.readLine();
@@ -1021,7 +1073,7 @@ void MainWindow::on_bMill_clicked()
         }
     }
 
-    // Current anb target positions
+    // Current and target positions
     int cx = x1[0];
     int cy = y1[0];
     int tx = x2[0];
@@ -1030,12 +1082,26 @@ void MainWindow::on_bMill_clicked()
 
     for(;;)
     {
-        drawLine(prnBits,
-                 cx / 1000,
-                 cy / 1000 - 500,
-                 tx / 1000,
-                 ty / 1000 - 500,
-                 color);
+//        drawLine(prnBits,
+//                 cx / 1000,
+//                 cy / 1000 - 500,
+//                 tx / 1000,
+//                 ty / 1000 - 500,
+//                 color);
+
+        // We need to take into account driller radius and shift the line
+        // accordingly
+        qint64 dx1, dx2, dx3, dx4;
+        qint64 dy1, dy2, dy3, dy4;
+
+        drillingPath(cx / 1000,
+                     cy / 1000 - 500,
+                     tx / 1000,
+                     ty / 1000 - 500,
+                     0, 0, 0, 0,
+                     10,                    // driller radius
+                     prnBits, color,
+                     dx1, dy1, dx2, dy2, dx3, dy3, dx4, dy4);
 
         cx = tx;
         cy = ty;
@@ -1048,7 +1114,7 @@ void MainWindow::on_bMill_clicked()
 
         update();
         QApplication::processEvents();
-        //Sleeper::msleep(1);
+        Sleeper::msleep(1000);
 
         // Find nearest start of line
         int ndist = 0x7fffffff;

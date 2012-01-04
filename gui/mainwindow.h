@@ -14,6 +14,7 @@
 #include <QMessageBox>
 #include <QDebug>
 #include <QRegExp>
+#include <math.h>
 
 #include "qserialport.h"
 
