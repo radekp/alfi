@@ -224,15 +224,7 @@ void setup()   {
 void loop()                     
 { 
   if(cmd == 'M')
-  {
-    if(cx == tx && cy == ty && cz == tz)
-    {
-      Serial.print("done ");
-      Serial.println(val);
-      cmd = 0;    // we are done, read next command from serial
-      return;
-    }
-    
+  {    
     // motion handling
     if(cx != tx || cy != ty)
     {
@@ -247,8 +239,11 @@ void loop()
     {
       cz--;
       moveZ();
-    }    
-    cmd = 0;    
+    }
+    cmd = 0;
+    Serial.print("done ");
+    Serial.println(val);
+    cmd = 0;    // we are done, read next command from serial
   }
 
   // if not moving, stop current on all motor wirings

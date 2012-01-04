@@ -996,6 +996,8 @@ void MainWindow::on_bMill_clicked()
     QRegExp rwh("(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
     QRegExp rsci("[0123456789\\.-]+e[0123456789\\.-]+");     // scientific format, e.g. -8e-4
 
+    qint64 minX = 0xfffffff;
+    qint64 maxX = 0;
 
     // Read and parse svg file, results are in x1,x2,y1,y2 arrays
     for(;;)
@@ -1057,10 +1059,15 @@ void MainWindow::on_bMill_clicked()
             x += w;
             y += h;
 
+            minX = (x < minX ? x : minX);
+            maxX = (x > maxX ? x : maxX);
+
             line.remove(0, pos + capwh.length());
             qDebug() << "rem=" << line;
         }
     }
+
+    qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
 
     // Current and target positions on svg
     qint64 cx = x1[0];
@@ -1098,8 +1105,14 @@ void MainWindow::on_bMill_clicked()
                  color);
 
 
-        //move(0, cX, tX, 1, 0);
-        //move(1, cY, tY, 1, 0);
+        // steps = svg coord * 0.0192520923721
+        int stepsCX = (cX * 19252) / 1000000;
+        int stepsCY = (cY * 19252) / 1000000;
+        int stepsTX = (tX * 19252) / 1000000;
+        int stepsTY = (tY * 19252) / 1000000;
+
+        move(0, stepsCX, stepsTX, 1, 0);
+        move(1, stepsCY, stepsTY, 1, 0);
 
         cx = tx;
         cy = ty;
