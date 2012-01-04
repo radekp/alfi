@@ -936,13 +936,15 @@ static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int ol
 }
 
 void MainWindow::on_bMill_clicked()
-{    
+{
     QFile f("pcb.svg");
     if(!f.open(QFile::ReadOnly))
     {
         ui->tbSerial->append(f.errorString());
         return;
     }
+
+    MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
 
     static int x1[65535];
     static int y1[65535];
