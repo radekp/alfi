@@ -60,7 +60,7 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 115200), cmdNo(0)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), cmdNo(0)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -931,34 +931,34 @@ void MainWindow::on_bSendSerial_clicked()
 
 void MainWindow::on_bXMinus_clicked()
 {
-    port.write("a0 p100 t0 m ");
+    port.write("a0 p200 t0 m ");
 }
 
 void MainWindow::on_bXPlus_clicked()
 {
     qDebug() << "XPlus";
-    port.write("a0 p0 t100 m ");
+    port.write("a0 p0 t200 m ");
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
     qDebug() << "XMinus";
-    port.write("a1 p100 t0 m ");
+    port.write("a1 p200 t0 m ");
 }
 
 void MainWindow::on_bYPlus_clicked()
 {
-    port.write("a1 p0 t100 m ");
+    port.write("a1 p0 t200 m ");
 }
 
 void MainWindow::on_bZMinus_clicked()
 {
-    port.write("a2 p30 t0 m ");
+    port.write("a2 p30 t200 m ");
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
-    port.write("a2 p0 t30 m ");
+    port.write("a2 p0 t200 m ");
 }
 
 static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)

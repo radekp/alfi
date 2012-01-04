@@ -38,6 +38,30 @@ int val;
 int limit;      // last value of limit switch
 
 
+void delayAndCheckLimit(int inputNo)
+{
+  int oldLimit = limit;
+  delayMicroseconds(cdelay);  
+  limit = analogRead(inputNo);    // read the limit switch
+
+  if(oldLimit < 0)
+  {
+    return;
+  }
+
+  int deltaL = abs(limit - oldLimit);
+  if(deltaL < 512)
+  {
+    return;
+  }
+  // stop motion if limit switch value changes
+  Serial.print("limit ");
+  Serial.print(oldLimit);
+  Serial.print("->");
+  Serial.println(limit);
+  cmd = 0;
+}
+
 // One step to x
 void moveX()
 {
@@ -55,8 +79,7 @@ void moveX()
     case 6: digitalWrite(4, LOW); digitalWrite(3, LOW); digitalWrite(5, HIGH); break;                                        // 5
     case 7:                                             digitalWrite(5, HIGH); digitalWrite(3, HIGH); break;                 // 53
   }
-  delayMicroseconds(cdelay);
-  limit = analogRead(A2);    // read the limit switch
+  delayAndCheckLimit(A2);
 }
 
 // One step to y
@@ -76,8 +99,7 @@ void moveY()
     case 6: digitalWrite(9, LOW); digitalWrite(8, LOW); digitalWrite(6, HIGH); break;                                        // 6
     case 7:                                             digitalWrite(6, HIGH); digitalWrite(8, HIGH); break;                 // 68
   }
-  delayMicroseconds(cdelay);
-  limit = analogRead(A2);    // read the limit switch
+  delayAndCheckLimit(A0);
 }
 
 // One step to z
@@ -97,8 +119,7 @@ void moveZ()
     case 6: digitalWrite(10, LOW); digitalWrite(13, LOW); digitalWrite(11, HIGH); break;                                        // 11
     case 7:                                               digitalWrite(11, HIGH); digitalWrite(13, HIGH); break;                // 11 13
   }
-  delayMicroseconds(cdelay);
-  limit = analogRead(A2);    // read the limit switch
+  delayAndCheckLimit(A1);
 }
 
 // draw line using Bresenham's line algorithm
@@ -185,16 +206,16 @@ void setup()   {
 
 
   // initialize the serial communication
-  Serial.begin(115200);
+  Serial.begin(9600);
   
   cmd = 0;
   bufPos = 0;
   axis = 0;
   cx = cy = cz = tx = ty = tz = 0;
-  sdelay = 6000;
-  cdelay = 6000;
+  sdelay = 3500;
+  cdelay = 3500;
   tdelay = 3000;
-  delayStep = 500;
+  delayStep = 100;
   
   Serial.println("arduino init ok");
 }
@@ -212,8 +233,6 @@ void loop()
       return;
     }
     
-    int oldLimit = limit;
-  
     // motion handling
     if(cx != tx || cy != ty)
     {
@@ -229,21 +248,7 @@ void loop()
       cz--;
       moveZ();
     }    
-    
-    // stop motion if limit switch value changes
-    if(oldLimit > 0)
-    {
-      int deltaL = abs(limit - oldLimit);
-      if(deltaL > 512)
-      {
-        Serial.print("limit ");
-        Serial.print(oldLimit);
-        Serial.print("->");
-        Serial.println(limit);
-        cmd = 0;
-        return;
-      }
-    }
+    cmd = 0;    
   }
 
   // if not moving, stop current on all motor wirings
@@ -308,7 +313,7 @@ void loop()
       {
         cx = val;
       }
-      else if(axis = 1)
+      else if(axis == 1)
       {
         cy = val;
       }
@@ -323,7 +328,7 @@ void loop()
       {
         tx = val;
       }
-      else if(axis = 1)
+      else if(axis == 1)
       {
         ty = val;
       }
