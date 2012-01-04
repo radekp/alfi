@@ -985,6 +985,21 @@ static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int ol
     return true;
 }
 
+// Move plotter using svg coordinates
+//
+// 5000 steps = 43.6 mm
+// x steps    = 95.3 mm
+// x = 10,928.8990826 steps
+// 1 step = 51.9126396641 svg points
+// steps = svg coord / 51.9126396641
+void MainWindow::moveBySvgCoord(int axis, int pos, int target, bool queue)
+{
+    int stepsPos = (pos * 1000) / 51912;
+    int stepsTarget = (target * 1000) / 51912;
+
+    move(axis, stepsPos, stepsTarget, 1, queue);
+}
+
 void MainWindow::on_bMill_clicked()
 {
 //    for(;;)
@@ -1095,6 +1110,11 @@ void MainWindow::on_bMill_clicked()
     // Real current and target positions (acconting driller radius)
     qint64 cX, cY, tX, tY, dummy;
 
+    // When using drilling radius, next line does not start where
+    // previous ended, so we have to do one more move
+    qint64 lastX = -1;
+    qint64 lastY = -1;
+
     int color = 1;
 
     for(;;)
@@ -1114,6 +1134,22 @@ void MainWindow::on_bMill_clicked()
                      cX, cY, tX, tY,
                      dummy, dummy, dummy, dummy);
 
+        if(lastX != -1)
+        {
+            drawLine(prnBits,
+                     lastX / 1000,
+                     lastY / 1000 - 500,
+                     cX / 1000,
+                     cY / 1000 - 500,
+                     color);
+
+            moveBySvgCoord(0, lastX, cX, true);
+            moveBySvgCoord(1, lastY, cY, false);
+        }
+
+        lastX = tX;
+        lastY = tY;
+
         drawLine(prnBits,
                  cX / 1000,
                  cY / 1000 - 500,
@@ -1121,19 +1157,8 @@ void MainWindow::on_bMill_clicked()
                  tY / 1000 - 500,
                  color);
 
-
-        // 5000 steps = 43.6 mm
-        // x steps    = 95.3 mm
-        // x = 10,928.8990826 steps
-        // 1 step = 51.9126396641 svg points
-        // steps = svg coord / 51.9126396641
-        int stepsCX = (cX * 1000) / 51912;
-        int stepsCY = (cY * 1000) / 51912;
-        int stepsTX = (tX * 1000) / 51912;
-        int stepsTY = (tY * 1000) / 51912;
-
-        move(0, stepsCX, stepsTX, 1, true);
-        move(1, stepsCY, stepsTY, 1, false);
+        moveBySvgCoord(0, cX, tX, true);
+        moveBySvgCoord(1, cY, tY, false);
 
         cx = tx;
         cy = ty;

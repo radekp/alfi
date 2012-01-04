@@ -67,6 +67,7 @@ public:
     void left(int times);
     void right(int times);
     void move(int axis, int pos, int target, int scale = 1, bool queue = false);
+    void moveBySvgCoord(int axis, int pos, int target, bool queue);
 
 private slots:
     void on_bMill_clicked();
