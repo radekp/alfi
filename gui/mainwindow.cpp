@@ -579,6 +579,8 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
 
 void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
 {
+    return;
+
     QString cmd = "a" + QString::number(axis) +
                   " p" + QString::number(pos * scale) +
                   " t" + QString::number(target * scale);
@@ -1025,13 +1027,14 @@ void MainWindow::on_bMill_clicked()
 //        move(2, 0, 200);
 //    }
 
-    QFile f("pcb.svg");
+    QFile f("/home/radek/alfi/gui/drilling.svg");
     if(!f.open(QFile::ReadOnly))
     {
         ui->tbSerial->append(f.errorString());
         return;
     }
 
+    QStringList lines;
     static qint64 x1[65535];
     static qint64 y1[65535];
     static qint64 x2[65535];
@@ -1048,6 +1051,7 @@ void MainWindow::on_bMill_clicked()
     openOutFile("/home/radek/Plocha/drilling.svg");
 
     // Read and parse svg file, results are in x1,x2,y1,y2 arrays
+    QString drillStr;
     for(;;)
     {
         QByteArray line = f.readLine();
@@ -1068,9 +1072,9 @@ void MainWindow::on_bMill_clicked()
         pos = rxy.indexIn(line);
         if(pos < 0)
         {
-            outFile->write(line + "\n");
             continue;
         }
+        bool abs = rxy.cap(1) == "M";
         qDebug() << "line[" << count << "]=" << line;
 
         QString capxy = rxy.cap(0);
@@ -1091,6 +1095,12 @@ void MainWindow::on_bMill_clicked()
             qint64 w = getCoord(rwh.cap(1));
             qint64 h = getCoord(rwh.cap(2));
 
+            if(abs)
+            {
+                w -= x;
+                h -= y;
+            }
+
             qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;            
 
             x1[count] = x;
@@ -1099,22 +1109,26 @@ void MainWindow::on_bMill_clicked()
             y2[count] = y + h;
             count++;
 
+            lines.append(line);
+
 //            drawLine(prnBits,
 //                     x / 1000,
 //                     y / 1000 - 500,
 //                     (x + w) / 1000,
-//                     (y + h) / 1000 - 500);
+//                     (y + h) / 1000 - 500,
+//                     1);
 
 
             qint64 cx, cy, tx, ty;
             drillingPath(x, y, x + w, y + h,
                          9525,                    // driller radius
                          cx, cy, tx, ty);
-            if(i == 0)
-            {
-                outFile->write(QString("     d=\"m " + num2svg(cx) + "," + num2svg(cy)).toLatin1());
-            }
-            outFile->write(QString(" " + num2svg(tx - cx) + "," + num2svg(ty - cy)).toLatin1());
+
+            drillStr.append("<path d=\"m ");
+            drillStr.append(num2svg(cx) + "," + num2svg(cy) + " " + num2svg(tx - cx) + "," + num2svg(ty - cy));
+            drillStr.append("\"\nstyle=\"fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.76908362;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none\"\n");
+            drillStr.append("id=\"path" + QString::number(x + y + w + h) + "\"\n");
+            drillStr.append("/>\n\n");
 
             x += w;
             y += h;
@@ -1125,9 +1139,10 @@ void MainWindow::on_bMill_clicked()
             line.remove(0, pos + capwh.length());
             qDebug() << "rem=" << line;
         }
-        outFile->write("\"\n");
     }
 
+    outFile->write(drillStr.toLatin1());
+    outFile->write("\n\n\n\n\n\n\n\n\n\n\n\n");
     closeOutFile();
     qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
 
@@ -1137,15 +1152,12 @@ void MainWindow::on_bMill_clicked()
     qint64 tx = x2[0];
     qint64 ty = y2[0];
 
-    // Real current and target positions (acconting driller radius)
-    qint64 cX, cY, tX, tY, dummy;
-
-    // When using drilling radius, next line does not start where
-    // previous ended, so we have to do one more move
-    qint64 lastX = -1;
-    qint64 lastY = -1;
-
+    static int colors[65535];
+    memset(colors, 0, 65535);
     int color = 1;
+    colors[0] = color;
+    int lastX = cx;
+    int lastY = cy;
 
     for(;;)
     {
@@ -1156,69 +1168,76 @@ void MainWindow::on_bMill_clicked()
                  ty / 1000 - 500,
                  color);
 
-        // We need to take into account driller radius and shift the line
-        // accordingly
-        drillingPath(cx, cy, tx, ty,
-                     9525,                    // driller radius
-                     cX, cY, tX, tY);
+        moveBySvgCoord(0, cx, tx, true);
+        moveBySvgCoord(1, cy, ty, false);
 
-        if(lastX != -1)
-        {
-            drawLine(prnBits,
-                     lastX / 1000,
-                     lastY / 1000 - 500,
-                     cX / 1000,
-                     cY / 1000 - 500,
-                     color);
-
-            moveBySvgCoord(0, lastX, cX, true);
-            moveBySvgCoord(1, lastY, cY, false);
-        }
-
-        lastX = tX;
-        lastY = tY;
-
-        drawLine(prnBits,
-                 cX / 1000,
-                 cY / 1000 - 500,
-                 tX / 1000,
-                 tY / 1000 - 500,
-                 color);
-
-        moveBySvgCoord(0, cX, tX, true);
-        moveBySvgCoord(1, cY, tY, false);
-
-        cx = tx;
-        cy = ty;
-        cX = tX;
-        cY = tY;
-
-        if(cx == x1[0] && cy == y1[0])
-        {
-            color = color ? 0 : 1;
-            move(2, 0, 200);
-        }
+        lastX = tx;
+        lastY = ty;
 
         update();
         QApplication::processEvents();
         //Sleeper::msleep(1000);
 
         // Find nearest start of line
-        int ndist = 0x7fffffff;
+        qint64 ndist = 0x7fffffffffffffff;
         int nindex = -1;
+        bool swap = false;
         for(int i = 0; i < count; i++)
         {
-            qint64 dist = abs(x1[i] - cx) + abs(y1[i] - cy);
+            qint64 w = x1[i] - tx;
+            qint64 h = y1[i] - ty;
+            qint64 dist1 = w * w + h * h;
+            w = x2[i] - tx;
+            h = y2[i] - ty;
+            qint64 dist2 = w * w + h * h;
+            qint64 dist = (dist1 < dist2 ? dist1 : dist2);
+            qDebug() << "i=" << i << ", dist=" << dist << "line=" << lines.at(i);
             if(dist > ndist)
             {
                 continue;
             }
+            if(colors[i] == color)
+            {
+                continue;       // already drawn
+            }
             ndist = dist;
             nindex = i;
+            swap = (dist2 < dist1);
         }
 
-        tx = x2[nindex];
-        ty = y2[nindex];
+        if(nindex >= 0)
+        {
+            cx = swap ? x2[nindex] : x1[nindex];
+            cy = swap ? y2[nindex] : y1[nindex];
+            tx = swap ? x1[nindex] : x2[nindex];
+            ty = swap ? y1[nindex] : y2[nindex];
+            colors[nindex] = color;
+
+            qDebug() << "next line is " << lines.at(nindex);
+        }
+        else
+        {
+            color = color ? 0 : 1;      // all done
+            move(2, 0, 200);            // drill the shape a shifted down
+            cx = x1[0];
+            cy = y1[0];
+            tx = x2[0];
+            ty = y2[0];
+            colors[0] = color;
+        }
+
+        if(cx != lastX || cy != lastY)      // if lines on svg are not continuous
+        {
+            drawLine(prnBits,
+                     lastX / 1000,
+                     lastY / 1000 - 500,
+                     cx / 1000,
+                     cy / 1000 - 500,
+                     color);
+
+            moveBySvgCoord(0, lastX, cx, true);
+            moveBySvgCoord(1, lastY, cy, false);
+        }
     }
 
 
