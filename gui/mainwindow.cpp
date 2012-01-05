@@ -36,13 +36,12 @@ void openOutFile(QString name)
         outFile->close();
         delete outFile;
     }
-    outFile = new QFile(name + ".txt");
+    outFile = new QFile(name);
     outFile->open(QFile::WriteOnly | QFile::Truncate);
 }
 
 void closeOutFile()
 {
-    outFile->write("\n");
     outFile->close();
     outFile = NULL;
 }
@@ -1000,6 +999,25 @@ void MainWindow::moveBySvgCoord(int axis, int pos, int target, bool queue)
     move(axis, stepsPos, stepsTarget, 1, queue);
 }
 
+static QString num2svg(qint64 num)
+{
+    int th = abs(num) / 1000;
+    int rest = abs(num) % 1000;
+    QString res = (num >= 0 ? "" : "-");
+    res += QString::number(th);
+    res += '.';
+    if(rest <= 9)
+    {
+        res += "00";
+    }
+    else if(rest <= 99)
+    {
+        res += "0";
+    }
+    res += QString::number(rest);
+    return res;
+}
+
 void MainWindow::on_bMill_clicked()
 {
 //    for(;;)
@@ -1031,6 +1049,8 @@ void MainWindow::on_bMill_clicked()
     qint64 minX = 0xfffffff;
     qint64 maxX = 0;
 
+    openOutFile("/home/radek/Plocha/drilling.svg");
+
     // Read and parse svg file, results are in x1,x2,y1,y2 arrays
     for(;;)
     {
@@ -1052,6 +1072,7 @@ void MainWindow::on_bMill_clicked()
         pos = rxy.indexIn(line);
         if(pos < 0)
         {
+            outFile->write(line + "\n");
             continue;
         }
         qDebug() << "line[" << count << "]=" << line;
@@ -1061,6 +1082,7 @@ void MainWindow::on_bMill_clicked()
         qint64 y = getCoord(rxy.cap(3));
 
         line.remove(0, pos + capxy.length());
+        outFile->write(QString("     d=\"m " + num2svg(x) + "," + num2svg(y)).toLatin1());
 
         for(;;)
         {
@@ -1075,6 +1097,7 @@ void MainWindow::on_bMill_clicked()
             qint64 h = getCoord(rwh.cap(2));
 
             qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
+            outFile->write(QString(" " + num2svg(w) + "," + num2svg(h)).toLatin1());
 
             x1[count] = x;
             y1[count] = y;
@@ -1097,8 +1120,10 @@ void MainWindow::on_bMill_clicked()
             line.remove(0, pos + capwh.length());
             qDebug() << "rem=" << line;
         }
+        outFile->write("\"\n");
     }
 
+    closeOutFile();
     qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
 
     // Current and target positions on svg
