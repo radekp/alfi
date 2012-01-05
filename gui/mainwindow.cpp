@@ -196,21 +196,17 @@ static void drawLine(uchar *bits, int x0, int y0, int x1, int y1, int color)
 
 static void drillingPath(qint64 ax, qint64 ay,
                          qint64 bx, qint64 by,
-                         qint64 cx, qint64 cy,
-                         qint64 dx, qint64 dy,
                          qint64 r,
                          qint64 & x0, qint64 & y0,
-                         qint64 & x1, qint64 & y1,
-                         qint64 & x2, qint64 & y2,
-                         qint64 & x3, qint64 & y3
+                         qint64 & x1, qint64 & y1
                          )
 {
     // orthogonal line r pixels long
     qint64 w = by - ay;
     qint64 h = ax - bx;
-    qint64 c = (qint64) sqrt((1000000 * r * r) / (w * w + h * h));
-    w = (c * w) / 1000;
-    h = (c * h) / 1000;
+    qint64 c = (qint64) sqrt((10000 * 10000 * r * r) / (w * w + h * h));
+    w = (c * w) / 10000;
+    h = (c * h) / 10000;
     x0 = ax + w;
     y0 = ay + h;
     x1 = bx + w;
@@ -1082,9 +1078,8 @@ void MainWindow::on_bMill_clicked()
         qint64 y = getCoord(rxy.cap(3));
 
         line.remove(0, pos + capxy.length());
-        outFile->write(QString("     d=\"m " + num2svg(x) + "," + num2svg(y)).toLatin1());
 
-        for(;;)
+        for(int i = 0;;i++)
         {
             pos = rwh.indexIn(line);
             if(pos < 0)
@@ -1096,20 +1091,30 @@ void MainWindow::on_bMill_clicked()
             qint64 w = getCoord(rwh.cap(1));
             qint64 h = getCoord(rwh.cap(2));
 
-            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
-            outFile->write(QString(" " + num2svg(w) + "," + num2svg(h)).toLatin1());
+            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;            
 
             x1[count] = x;
             y1[count] = y;
             x2[count] = x + w;
             y2[count] = y + h;
-            count++;            
+            count++;
 
 //            drawLine(prnBits,
 //                     x / 1000,
 //                     y / 1000 - 500,
 //                     (x + w) / 1000,
 //                     (y + h) / 1000 - 500);
+
+
+            qint64 cx, cy, tx, ty;
+            drillingPath(x, y, x + w, y + h,
+                         9525,                    // driller radius
+                         cx, cy, tx, ty);
+            if(i == 0)
+            {
+                outFile->write(QString("     d=\"m " + num2svg(cx) + "," + num2svg(cy)).toLatin1());
+            }
+            outFile->write(QString(" " + num2svg(tx - cx) + "," + num2svg(ty - cy)).toLatin1());
 
             x += w;
             y += h;
@@ -1154,10 +1159,8 @@ void MainWindow::on_bMill_clicked()
         // We need to take into account driller radius and shift the line
         // accordingly
         drillingPath(cx, cy, tx, ty,
-                     0, 0, 0, 0,
                      9525,                    // driller radius
-                     cX, cY, tX, tY,
-                     dummy, dummy, dummy, dummy);
+                     cX, cY, tX, tY);
 
         if(lastX != -1)
         {
