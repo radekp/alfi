@@ -54,6 +54,7 @@ public:
     int penY;
     int moveNo;
     QSerialPort port;
+    QString serialLog;
 
     void handleArrowClick(Direction);
     void loadImg();

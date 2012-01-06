@@ -599,28 +599,37 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
     {
         return;
     }
+    if(moveNo == 0)
+    {
+        moveNo = 1;
+        return;
+    }
 
-    QString expect = "done " + QString::number(moveNo);
-    QString reply;
+    QString expect = "done" + QString::number(moveNo - 1);
     for(;;)
     {
-        port.waitForReadyRead(10);
-        int avail = port.bytesAvailable();
-        if(avail <= 0)
+        if(!port.waitForReadyRead(100))
+        {
+            QApplication::processEvents();
+            continue;
+        }
+        QByteArray str = port.readLine().trimmed();
+        if(str.length() == 0)
         {
             continue;
         }
-        QByteArray str = port.read(avail);
+        qDebug() << str;
+        serialLog.append(str);
         ui->tbSerial->append(str);
         ui->tbSerial->update();
-        reply += str;
-        if(reply.indexOf(expect) >= 0)
+        if(serialLog.lastIndexOf(expect) >= 0)
         {
+            ui->tbSerial->append("\n");
             break;
         }
-        if(reply.indexOf("limit") >= 0)
+        if(serialLog.lastIndexOf("limit") >= 0)
         {
-            QMessageBox::information(this, "Limit reached", reply);
+            QMessageBox::information(this, "Limit reached", serialLog.right(20));
         }
     }
     moveNo++;
@@ -1189,7 +1198,7 @@ void MainWindow::on_bMill_clicked()
             h = y2[i] - ty;
             qint64 dist2 = w * w + h * h;
             qint64 dist = (dist1 < dist2 ? dist1 : dist2);
-            qDebug() << "i=" << i << ", dist=" << dist << "line=" << lines.at(i);
+            //qDebug() << "i=" << i << ", dist=" << dist << "line=" << lines.at(i);
             if(dist > ndist)
             {
                 continue;
@@ -1211,7 +1220,7 @@ void MainWindow::on_bMill_clicked()
             ty = swap ? y1[nindex] : y2[nindex];
             colors[nindex] = color;
 
-            qDebug() << "next line is " << lines.at(nindex);
+            //qDebug() << "next line is " << lines.at(nindex);
         }
         else
         {

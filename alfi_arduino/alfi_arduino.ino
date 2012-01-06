@@ -315,7 +315,7 @@ void loop()
             moveZ();
         }
         cmd = 0;
-        Serial.print("done ");
+        Serial.print("done");
         Serial.println(val);
         cmd = 0;                // we are done, read next command from serial
     }
