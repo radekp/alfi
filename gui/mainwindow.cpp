@@ -579,8 +579,6 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
 
 void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
 {
-    return;
-
     QString cmd = "a" + QString::number(axis) +
                   " p" + QString::number(pos * scale) +
                   " t" + QString::number(target * scale);

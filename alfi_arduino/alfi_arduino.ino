@@ -28,7 +28,9 @@ int axis;                       // selected axis number
 int sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
 int tdelay;                     // target deleay between steps (smaller number is higher speed)
 int delayStep;                  // with this step is delay increased/decreased
-int cdelay;
+int delayX;                    // current delay on x
+int delayY;                    // current delay on y
+int delayZ;                    // current delay on z
 
 char cmd;                       // command we are currenly reading (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion)
 char b;
@@ -37,10 +39,10 @@ int bufPos;
 int val;
 int limit;                      // last value of limit switch
 
-void delayAndCheckLimit(int inputNo)
+void delayAndCheckLimit(int delayUs, int inputNo)
 {
     int oldLimit = limit;
-    delayMicroseconds(cdelay);
+    delayMicroseconds(delayUs);
     limit = analogRead(inputNo);    // read the limit switch
 
     if (oldLimit < 0) {
@@ -103,7 +105,12 @@ void moveX()
         digitalWrite(3, HIGH);
         break;                  // 53
     }
-    delayAndCheckLimit(A2);
+    delayAndCheckLimit(delayX, A2);
+    delayY = delayZ = sdelay;
+    if(delayX > tdelay)
+    {
+        delayX -= delayStep;
+    }
 }
 
 // One step to y
@@ -150,7 +157,12 @@ void moveY()
         digitalWrite(8, HIGH);
         break;                  // 68
     }
-    delayAndCheckLimit(A0);
+    delayAndCheckLimit(delayY, A0);
+    delayX = delayZ = sdelay;
+    if(delayY > tdelay)
+    {
+        delayY -= delayStep;
+    }
 }
 
 // One step to z
@@ -197,7 +209,8 @@ void moveZ()
         digitalWrite(13, HIGH);
         break;                  // 11 13
     }
-    delayAndCheckLimit(A1);
+    delayAndCheckLimit(delayZ, A1);
+    delayX = delayY = sdelay;
 }
 
 // draw line using Bresenham's line algorithm
@@ -277,10 +290,9 @@ void setup()
     bufPos = 0;
     axis = 0;
     cx = cy = cz = tx = ty = tz = 0;
-    sdelay = 3500;
-    cdelay = 3500;
-    tdelay = 3000;
-    delayStep = 100;
+    sdelay = 3000;
+    tdelay = 2000;
+    delayStep = 50;
 
     Serial.println("arduino init ok");
 }
@@ -289,6 +301,8 @@ void loop()
 {
     if (cmd == 'M') {
         // motion handling
+        delayX = delayY = delayZ = sdelay;
+        
         if (cx != tx || cy != ty) {
             drawLine(cx, cy, tx, ty);
         }
@@ -347,7 +361,6 @@ void loop()
 
         if (cmd == 'm') {
             cmd = 'M';
-            cdelay = sdelay;    // set delays, init limit and start motion
             limit = -1;
             return;
         }
