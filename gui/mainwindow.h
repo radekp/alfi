@@ -53,8 +53,10 @@ public:
     int penX;
     int penY;
     int moveNo;
+    int expectMoveNo;
     QSerialPort port;
     QString serialLog;
+    bool milling;
 
     void handleArrowClick(Direction);
     void loadImg();

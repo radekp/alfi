@@ -28,6 +28,8 @@
 #define PRN_WIDTH 2047
 #define PRN_HEIGHT 2047
 
+#define MOVES_AHEAD 0
+
 QFile *outFile = NULL;
 
 void openOutFile(QString name)
@@ -59,7 +61,7 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), moveNo(0)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), moveNo(0), expectMoveNo(0), milling(false)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -590,6 +592,7 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
     else
     {
         cmd += " m" + QString::number(moveNo) + " ";
+        moveNo++;
     }
 
     qDebug() << cmd;
@@ -599,40 +602,49 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
     {
         return;
     }
-    if(moveNo == 0)
+    if(expectMoveNo + MOVES_AHEAD > moveNo)
     {
-        moveNo = 1;
         return;
     }
 
-    QString expect = "done" + QString::number(moveNo - 1);
+    QString expect = "done" + QString::number(expectMoveNo);
     for(;;)
     {
-        if(!port.waitForReadyRead(100))
-        {
-            QApplication::processEvents();
-            continue;
-        }
-        QByteArray str = port.readLine().trimmed();
+        port.waitForReadyRead(10);
+        QByteArray str = port.read(1024);
         if(str.length() == 0)
         {
             continue;
         }
-        qDebug() << str;
-        serialLog.append(str);
+        qDebug() << "serial in=" << str;
+        for(int i = 0; i < str.count(); i++)
+        {
+            char ch = str.at(i);
+            if(
+                    (ch >= 'a' && ch <= 'z') ||
+                    (ch >= 'A' && ch <= 'Z') ||
+                    (ch >= '0' && ch <= '9'))
+            {
+                serialLog.append(ch);
+            }
+        }
+        qDebug() << "serialLog=" << serialLog;
         ui->tbSerial->append(str);
         ui->tbSerial->update();
-        if(serialLog.lastIndexOf(expect) >= 0)
+
+        int index = serialLog.lastIndexOf(expect);
+        if(index >= 0)
         {
-            ui->tbSerial->append("\n");
-            break;
+            expectMoveNo++;
+            return;
         }
         if(serialLog.lastIndexOf("limit") >= 0)
         {
-            QMessageBox::information(this, "Limit reached", serialLog.right(20));
+            QString tail = serialLog.count() < 1024 ? serialLog : serialLog.right(1024);
+            QMessageBox::information(this, "Limit reached", tail);
+            return;
         }
     }
-    moveNo++;
 }
 
 void MainWindow::loadImg()
@@ -924,53 +936,61 @@ void MainWindow::on_bNiceDraw_clicked()
 
 void MainWindow::readSerial()
 {
+    if(milling)
+    {
+        return;
+    }
     int avail = port.bytesAvailable();
     if(avail <= 0)
     {
-        QTimer::singleShot(1000, this, SLOT(readSerial()));
+        QTimer::singleShot(100, this, SLOT(readSerial()));
         return;
     }
     QByteArray data = port.readAll();
     qDebug() << data;
     ui->tbSerial->append(data);
-    QTimer::singleShot(200, this, SLOT(readSerial()));
 }
 
 void MainWindow::on_bSendSerial_clicked()
 {
     port.write(ui->tbSendSerial->text().toAscii());
+    readSerial();
 }
 
 void MainWindow::on_bXMinus_clicked()
 {
     port.write("a0 p200 t0 m ");
+    readSerial();
 }
 
 void MainWindow::on_bXPlus_clicked()
 {
-    qDebug() << "XPlus";
     port.write("a0 p0 t200 m ");
+    readSerial();
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
-    qDebug() << "XMinus";
     port.write("a1 p200 t0 m ");
+    readSerial();
 }
 
 void MainWindow::on_bYPlus_clicked()
 {
     port.write("a1 p0 t200 m ");
+    readSerial();
 }
 
 void MainWindow::on_bZMinus_clicked()
 {
     port.write("a2 p200 t0 m ");
+    readSerial();
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
     port.write("a2 p0 t200 m ");
+    readSerial();
 }
 
 static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
@@ -1033,6 +1053,8 @@ void MainWindow::on_bMill_clicked()
 //        move(1, 5000, 0);
 //        move(2, 0, 200);
 //    }
+
+    milling = true;
 
     QFile f("/home/radek/alfi/gui/drilling.svg");
     if(!f.open(QFile::ReadOnly))
@@ -1152,6 +1174,15 @@ void MainWindow::on_bMill_clicked()
     outFile->write("\n\n\n\n\n\n\n\n\n\n\n\n");
     closeOutFile();
     qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
+
+    for(int i = 0; i < count; i++)
+    {
+        x1[i] = (x1[i] * 955) / 953;
+        y1[i] = (y1[i] * 955) / 953;
+        x2[i] = (x2[i] * 955) / 953;
+        y2[i] = (y2[i] * 955) / 953;
+    }
+
 
     // Current and target positions on svg
     qint64 cx = x1[0];
