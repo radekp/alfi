@@ -17,6 +17,8 @@
 
 */
 
+#define MAX_CMDS 32
+
 int cx;
 int tx;
 int cy;
@@ -28,15 +30,22 @@ int axis;                       // selected axis number
 int sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
 int tdelay;                     // target deleay between steps (smaller number is higher speed)
 int delayStep;                  // with this step is delay increased/decreased
-int delayX;                    // current delay on x
-int delayY;                    // current delay on y
-int delayZ;                    // current delay on z
+int delayX;                     // current delay on x
+int delayY;                     // current delay on y
+int delayZ;                     // current delay on z
 
-char cmd;                       // command we are currenly reading (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion)
+char cmd;                       // current command (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion, q=queue start, e=execute queue)
+int arg;                        // argument for current commands
+
+char cmds[MAX_CMDS];            // queued commands
+int args[MAX_CMDS];             // arguments for queued commands
+int cmdIndex;
+int cmdCount;
+int queueId;
+
 char b;
 char buf[9];
 int bufPos;
-int val;
 int limit;                      // last value of limit switch
 
 void delayAndCheckLimit(int delayUs, int inputNo)
@@ -107,8 +116,7 @@ void moveX()
     }
     delayAndCheckLimit(delayX, A2);
     delayY = delayZ = sdelay;
-    if(delayX > tdelay)
-    {
+    if (delayX > tdelay) {
         delayX -= delayStep;
     }
 }
@@ -159,8 +167,7 @@ void moveY()
     }
     delayAndCheckLimit(delayY, A0);
     delayX = delayZ = sdelay;
-    if(delayY > tdelay)
-    {
+    if (delayY > tdelay) {
         delayY -= delayStep;
     }
 }
@@ -260,7 +267,6 @@ void drawLine(int x0, int y0, int x1, int y1)
 
 void setup()
 {
-
     // 12 digitals outputs for 3 stepper motors
     pinMode(2, OUTPUT);
     pinMode(3, OUTPUT);
@@ -287,7 +293,9 @@ void setup()
     Serial.begin(9600);
 
     cmd = 0;
-    bufPos = 0;
+    cmdIndex = -1;
+    cmdCount = -1;
+    bufPos = -1;
     axis = 0;
     cx = cy = cz = tx = ty = tz = 0;
     sdelay = 3000;
@@ -299,47 +307,44 @@ void setup()
 
 void loop()
 {
-    if (cmd == 'M') {
-        // motion handling
-        delayX = delayY = delayZ = sdelay;
-        
-        if (cx != tx || cy != ty) {
-            drawLine(cx, cy, tx, ty);
+    if (cmd == 0 || bufPos >= 0) {
+        // read next command from queue
+        if (cmdIndex >= 0) {
+            if (cmdIndex >= cmdCount) {
+                Serial.print("qdone");
+                Serial.println(queueId);
+                cmdIndex = -1;  // queue executed
+                cmdCount = -1;
+                return;
+            }
+            cmd = cmds[cmdIndex];
+            arg = args[cmdIndex];
+            cmdIndex++;
+            return;
         }
-        while (cz < tz) {
-            cz++;
-            moveZ();
+        // if not moving, stop current on all motor wirings
+        if (cmd == 0) {
+            digitalWrite(13, LOW);
+            digitalWrite(12, LOW);
+            digitalWrite(11, LOW);
+            digitalWrite(10, LOW);
+            digitalWrite(9, LOW);
+            digitalWrite(8, LOW);
+            digitalWrite(7, LOW);
+            digitalWrite(6, LOW);
+            digitalWrite(5, LOW);
+            digitalWrite(4, LOW);
+            digitalWrite(3, LOW);
+            digitalWrite(2, LOW);
         }
-        while (cz > tz) {
-            cz--;
-            moveZ();
+        // check if data has been sent from the computer:
+        if (!Serial.available()) {
+            return;
         }
-        cmd = 0;
-        Serial.print("done");
-        Serial.println(val);
-        cmd = 0;                // we are done, read next command from serial
-    }
-    // if not moving, stop current on all motor wirings
-    if (cmd == 0) {
-        digitalWrite(13, LOW);
-        digitalWrite(12, LOW);
-        digitalWrite(11, LOW);
-        digitalWrite(10, LOW);
-        digitalWrite(9, LOW);
-        digitalWrite(8, LOW);
-        digitalWrite(7, LOW);
-        digitalWrite(6, LOW);
-        digitalWrite(5, LOW);
-        digitalWrite(4, LOW);
-        digitalWrite(3, LOW);
-        digitalWrite(2, LOW);
-    }
-    // check if data has been sent from the computer:
-    if (Serial.available()) {
-
         // read command
         if (cmd == 0) {
             cmd = Serial.read();
+            arg = 0x7fffffff;
             bufPos = 0;
             return;
         }
@@ -352,47 +357,92 @@ void loop()
             return;
         }
         buf[bufPos] = '\0';
-        val = atoi(buf);
+        arg = atoi(buf);
+        bufPos = -1;
 
-//    Serial.print("command ");
-//    Serial.print(cmd);
-//    Serial.print(" ");
-//    Serial.println(val);
+//        Serial.print("command ");
+//        Serial.print(cmd);
+//        Serial.print(" ");
+//        Serial.println(arg);
 
-        if (cmd == 'm') {
-            cmd = 'M';
-            limit = -1;
+        if (cmd == 'q') {
+            cmdCount = 0;       // start command queue
+            cmd = 0;
             return;
         }
-        if (cmd == 'a') {
-            axis = val;
-        } else if (cmd == 'p') {
-            if (axis == 0) {
-                cx = val;
-            } else if (axis == 1) {
-                cy = val;
-            } else {
-                cz = val;
-            }
-        } else if (cmd == 't') {
-            if (axis == 0) {
-                tx = val;
-            } else if (axis == 1) {
-                ty = val;
-            } else {
-                tz = val;
-            }
-        } else if (cmd == 's') {
-            sdelay = val;
-        } else if (cmd == 'd') {
-            tdelay = val;
-        } else if (cmd == 'z') {
-            delayStep = val;
-        } else {
-            Serial.print("error: unknown command ");
-            Serial.println(cmd);
+        if (cmd == 'e') {
+            queueId = arg;
+            cmdIndex = 0;       // execute command queue
+            cmd = 0;
+            return;
         }
-        cmd = 0;
+        if (cmdCount >= 0) {
+            cmds[cmdCount] = cmd;
+            args[cmdCount] = arg;
+            cmdCount++;
+            cmd = 0;
+            return;
+        }
+    }
+    
+    // motion handling
+    if (cmd == 'M') {
+        delayX = delayY = delayZ = sdelay;
+
+        if (cx != tx || cy != ty) {
+            drawLine(cx, cy, tx, ty);
+        }
+        while (cz < tz) {
+            cz++;
+            moveZ();
+        }
+        while (cz > tz) {
+            cz--;
+            moveZ();
+        }
+        if (cmdIndex < 0) {
+            Serial.print("done");
+            Serial.println(arg);
+        }
+        cmd = 0;                // we are done, read next command from serial/queue
         return;
     }
+
+    if (cmd == 'm') {
+        if (cmdCount >= 0 && cmdIndex < 0) {    // dont execute if queueing
+            return;
+        }
+        cmd = 'M';
+        limit = -1;
+        return;
+    }
+    if (cmd == 'a') {
+        axis = arg;
+    } else if (cmd == 'p') {
+        if (axis == 0) {
+            cx = arg;
+        } else if (axis == 1) {
+            cy = arg;
+        } else {
+            cz = arg;
+        }
+    } else if (cmd == 't') {
+        if (axis == 0) {
+            tx = arg;
+        } else if (axis == 1) {
+            ty = arg;
+        } else {
+            tz = arg;
+        }
+    } else if (cmd == 's') {
+        sdelay = arg;
+    } else if (cmd == 'd') {
+        tdelay = arg;
+    } else if (cmd == 'z') {
+        delayStep = arg;
+    } else {
+        Serial.print("error: unknown command ");
+        Serial.println(cmd);
+    }
+    cmd = 0;
 }
