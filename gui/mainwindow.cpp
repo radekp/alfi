@@ -28,7 +28,7 @@
 #define PRN_WIDTH 2047
 #define PRN_HEIGHT 2047
 
-#define MOVES_AHEAD 0
+#define QUEUE_LEN 30
 
 QFile *outFile = NULL;
 
@@ -61,7 +61,7 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), moveNo(0), expectMoveNo(0), milling(false)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), moveNo(0), cmdQueue(), milling(false)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -579,35 +579,72 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
     return false;
 }
 
-void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
+void MainWindow::move(int axis, int pos, int target, int scale, bool justSetPos, bool queue)
 {
     QString cmd = "a" + QString::number(axis) +
                   " p" + QString::number(pos * scale) +
                   " t" + QString::number(target * scale);
 
-    if(queue)
+    if(!justSetPos)
     {
-        cmd += " ";
-    }
-    else
-    {
-        cmd += " m" + QString::number(moveNo) + " ";
+        cmd += " m" + QString::number(moveNo);
         moveNo++;
     }
 
-    qDebug() << cmd;
-    port.write(cmd.toAscii());
-
     if(queue)
     {
-        return;
-    }
-    if(expectMoveNo + MOVES_AHEAD > moveNo)
-    {
-        return;
+        cmdQueue.append(cmd);
+        if(cmdQueue.count() < QUEUE_LEN || justSetPos)      // make sure that last command is m (even if QUEUE_LEN is reached)
+        {
+            return;
+        }
+        cmd = "q";
+        for(int i = 0; i < cmdQueue.count(); i++)
+        {
+            cmd += " ";
+            cmd += cmdQueue.at(i);
+        }
+        cmd += " e" + QString::number(moveNo - 1) + " ";
+        cmdQueue.clear();
     }
 
-    QString expect = "done" + QString::number(expectMoveNo);
+    qDebug() << "cmd=" << cmd;
+    QByteArray cmdBytes = cmd.toAscii();
+    int remains = cmdBytes.length();
+    for(int i = 0; remains > 0; i += 64)
+    {
+        int count = remains >= 64 ? 64 : remains;
+        port.write(cmdBytes.constData() + i, count);
+
+        for(;;)
+        {
+            int avail = port.bytesAvailable();
+            if(avail < count)
+            {
+                port.waitForReadyRead(5);
+                continue;
+            }
+            QByteArray echoBytes = port.read(count);
+            qDebug() << "echo=" << echoBytes;
+            for(int j = 0; j < count; j++)
+            {
+                if(echoBytes.at(j) != cmdBytes.at(i + j))
+                {
+                    qDebug() << "send data failed!!!";
+                    exit(1);
+                }
+            }
+            break;
+        }
+        remains -= count;
+    }
+//    port.write(cmd.toAscii());
+
+    QString expect = "done" + QString::number(moveNo - 1);
+    if(queue)
+    {
+        expect = "q" + expect;
+    }
     for(;;)
     {
         port.waitForReadyRead(10);
@@ -623,7 +660,8 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
             if(
                     (ch >= 'a' && ch <= 'z') ||
                     (ch >= 'A' && ch <= 'Z') ||
-                    (ch >= '0' && ch <= '9'))
+                    (ch >= '0' && ch <= '9') ||
+                    ch == ' ')
             {
                 serialLog.append(ch);
             }
@@ -635,7 +673,6 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool queue)
         int index = serialLog.lastIndexOf(expect);
         if(index >= 0)
         {
-            expectMoveNo++;
             return;
         }
         if(serialLog.lastIndexOf("limit") >= 0)
@@ -949,48 +986,42 @@ void MainWindow::readSerial()
     QByteArray data = port.readAll();
     qDebug() << data;
     ui->tbSerial->append(data);
+    QTimer::singleShot(100, this, SLOT(readSerial()));
 }
 
 void MainWindow::on_bSendSerial_clicked()
 {
     port.write(ui->tbSendSerial->text().toAscii());
-    readSerial();
 }
 
 void MainWindow::on_bXMinus_clicked()
 {
     port.write("a0 p200 t0 m ");
-    readSerial();
 }
 
 void MainWindow::on_bXPlus_clicked()
 {
     port.write("a0 p0 t200 m ");
-    readSerial();
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
     port.write("a1 p200 t0 m ");
-    readSerial();
 }
 
 void MainWindow::on_bYPlus_clicked()
 {
     port.write("a1 p0 t200 m ");
-    readSerial();
 }
 
 void MainWindow::on_bZMinus_clicked()
 {
     port.write("a2 p200 t0 m ");
-    readSerial();
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
     port.write("a2 p0 t200 m ");
-    readSerial();
 }
 
 static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
@@ -1016,12 +1047,12 @@ static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int ol
 // x = 10,928.8990826 steps
 // 1 step = 51.9126396641 svg points
 // steps = svg coord / 51.9126396641
-void MainWindow::moveBySvgCoord(int axis, int pos, int target, bool queue)
+void MainWindow::moveBySvgCoord(int axis, int pos, int target, bool justSetpos)
 {
     int stepsPos = (pos * 1000) / 51912;
     int stepsTarget = (target * 1000) / 51912;
 
-    move(axis, stepsPos, stepsTarget, 1, queue);
+    move(axis, stepsPos, stepsTarget, 1, justSetpos, true);
 }
 
 static QString num2svg(qint64 num)
@@ -1256,7 +1287,7 @@ void MainWindow::on_bMill_clicked()
         else
         {
             color = color ? 0 : 1;      // all done
-            move(2, 0, 200);            // drill the shape a shifted down
+            move(2, 0, 200, 1, false, true);            // drill the shape a shifted down
             cx = x1[0];
             cy = y1[0];
             tx = x2[0];

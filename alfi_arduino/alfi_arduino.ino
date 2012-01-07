@@ -17,7 +17,7 @@
 
 */
 
-#define MAX_CMDS 32
+#define MAX_CMDS 128
 
 int cx;
 int tx;
@@ -68,6 +68,7 @@ void delayAndCheckLimit(int delayUs, int inputNo)
     Serial.print("->");
     Serial.println(limit);
     cmd = 0;
+    cmdIndex = cmdCount = -1;
 }
 
 // One step to x
@@ -312,7 +313,7 @@ void loop()
         if (cmdIndex >= 0) {
             if (cmdIndex >= cmdCount) {
                 Serial.print("qdone");
-                Serial.println(queueId);
+                Serial.print(queueId);
                 cmdIndex = -1;  // queue executed
                 cmdCount = -1;
                 return;
@@ -320,6 +321,9 @@ void loop()
             cmd = cmds[cmdIndex];
             arg = args[cmdIndex];
             cmdIndex++;
+//            Serial.print(cmd);
+//            Serial.print(" ");
+//            Serial.print(arg);
             return;
         }
         // if not moving, stop current on all motor wirings
@@ -344,12 +348,14 @@ void loop()
         // read command
         if (cmd == 0) {
             cmd = Serial.read();
+            Serial.write(cmd);
             arg = 0x7fffffff;
             bufPos = 0;
             return;
         }
         // read integer argument
         b = Serial.read();
+        Serial.write(b);
 
         if (b != ' ') {
             buf[bufPos] = b;
@@ -402,7 +408,7 @@ void loop()
         }
         if (cmdIndex < 0) {
             Serial.print("done");
-            Serial.println(arg);
+            Serial.print(arg);
         }
         cmd = 0;                // we are done, read next command from serial/queue
         return;
