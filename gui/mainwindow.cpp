@@ -61,7 +61,7 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 9600), moveNo(0), cmdQueue(), milling(false)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 115200), moveNo(0), cmdQueue(), milling(false)
 {
     ui->setupUi(this);
     imgFile = QString::null;

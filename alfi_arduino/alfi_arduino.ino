@@ -291,7 +291,7 @@ void setup()
     digitalWrite(A2, HIGH);
 
     // initialize the serial communication
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     cmd = 0;
     cmdIndex = -1;
