@@ -681,6 +681,10 @@ void MainWindow::move(int axis, int pos, int target, bool justSetPos, bool flush
     {
         cmd += " m" + QString::number(moveNo);
         moveNo++;
+        if(cmdQueue.count() > QUEUE_LEN)
+        {
+            flush = true;
+        }
     }
     sendCmd(cmd, flush);
 }
@@ -1023,7 +1027,7 @@ void MainWindow::on_bZMinus_clicked()
 
 void MainWindow::on_bZPlus_clicked()
 {
-    move(2, 907, 0);
+    move(2, 0, 907);
     move(0, 0, 63);
 }
 
