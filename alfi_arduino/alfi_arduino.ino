@@ -48,27 +48,32 @@ char buf[9];
 int bufPos;
 int limit;                      // last value of limit switch
 
-void delayAndCheckLimit(int delayUs, int inputNo)
+int delayAndCheckLimit(int delayUs, int inputNo, int pos, int target)
 {
     int oldLimit = limit;
     delayMicroseconds(delayUs);
     limit = analogRead(inputNo);    // read the limit switch
 
-    if (oldLimit < 0) {
-        return;
+    if (oldLimit >= 0) {
+        int deltaL = abs(limit - oldLimit);
+        if (deltaL > 512) {
+            // stop motion if limit switch value changes
+            Serial.print("limit ");
+            Serial.print(oldLimit);
+            Serial.print("->");
+            Serial.println(limit);
+            cmd = 0;
+            cmdIndex = cmdCount = -1;
+        }
     }
-
-    int deltaL = abs(limit - oldLimit);
-    if (deltaL < 512) {
-        return;
+    if (abs(target - pos) < ((sdelay - tdelay) / delayStep)) {
+        if (delayUs < sdelay) {
+            return delayUs + delayStep; // closing to target, slow down
+        }
+    } else if (delayZ > tdelay) {
+        return delayUs - delayStep; // otherwise accelerate
     }
-    // stop motion if limit switch value changes
-    Serial.print("limit ");
-    Serial.print(oldLimit);
-    Serial.print("->");
-    Serial.println(limit);
-    cmd = 0;
-    cmdIndex = cmdCount = -1;
+    return delayUs;
 }
 
 // One step to x
@@ -115,11 +120,8 @@ void moveX()
         digitalWrite(3, HIGH);
         break;                  // 53
     }
-    delayAndCheckLimit(delayX, A2);
+    delayX = delayAndCheckLimit(delayX, A2, cx, tx);
     delayY = delayZ = sdelay;
-    if (delayX > tdelay) {
-        delayX -= delayStep;
-    }
 }
 
 // One step to y
@@ -166,11 +168,8 @@ void moveY()
         digitalWrite(8, HIGH);
         break;                  // 68
     }
-    delayAndCheckLimit(delayY, A0);
+    delayY = delayAndCheckLimit(delayY, A0, cy, ty);
     delayX = delayZ = sdelay;
-    if (delayY > tdelay) {
-        delayY -= delayStep;
-    }
 }
 
 // One step to z
@@ -217,7 +216,7 @@ void moveZ()
         digitalWrite(13, HIGH);
         break;                  // 11 13
     }
-    delayAndCheckLimit(delayZ, A1);
+    delayZ = delayAndCheckLimit(delayZ, A1, cz, tz);
     delayX = delayY = sdelay;
 }
 
@@ -390,7 +389,6 @@ void loop()
             return;
         }
     }
-    
     // motion handling
     if (cmd == 'M') {
         delayX = delayY = delayZ = sdelay;
