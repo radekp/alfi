@@ -1016,12 +1016,12 @@ void MainWindow::on_bYPlus_clicked()
 
 void MainWindow::on_bZMinus_clicked()
 {
-    port.write("s7000 d4000 a0 p63 t0 a2 p907 t0 m ");
+    port.write("a0 p63 t0 a2 p907 t0 m ");
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
-    port.write("s7000 d4000 a2 p0 t907 a0 p0 t63 m ");
+    port.write("a2 p0 t907 a0 p0 t63 m ");
 }
 
 static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
@@ -1211,11 +1211,6 @@ void MainWindow::on_bMill_clicked()
     {
         x1[i] = midX - x1[i] + midX;        // mirror
         x2[i] = midX - x2[i] + midX;
-
-        x1[i] = (x1[i] * 955) / 953;
-        y1[i] = (y1[i] * 955) / 953;
-        x2[i] = (x2[i] * 955) / 953;
-        y2[i] = (y2[i] * 955) / 953;        
     }
 
 
@@ -1291,7 +1286,10 @@ void MainWindow::on_bMill_clicked()
         else
         {
             color = color ? 0 : 1;      // all done
-            move(2, 0, 200, 1, false, true);            // drill the shape a shifted down
+
+            move(2, 0, 907, 1, false, true);           // drill the shape shifted 1mm down
+            move(0, 0, 63, 1, false, true);            // compensate x drift
+
             cx = x1[0];
             cy = y1[0];
             tx = x2[0];
