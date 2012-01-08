@@ -1016,12 +1016,12 @@ void MainWindow::on_bYPlus_clicked()
 
 void MainWindow::on_bZMinus_clicked()
 {
-    port.write("a2 p200 t0 m ");
+    port.write("s7000 d4000 a0 p63 t0 a2 p907 t0 m ");
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
-    port.write("a2 p0 t200 m ");
+    port.write("s7000 d4000 a2 p0 t907 a0 p0 t63 m ");
 }
 
 static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)

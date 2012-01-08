@@ -70,7 +70,7 @@ int delayAndCheckLimit(int delayUs, int inputNo, int pos, int target)
         if (delayUs < sdelay) {
             return delayUs + delayStep; // closing to target, slow down
         }
-    } else if (delayZ > tdelay) {
+    } else if (delayUs > tdelay) {
         return delayUs - delayStep; // otherwise accelerate
     }
     return delayUs;
@@ -298,8 +298,8 @@ void setup()
     bufPos = -1;
     axis = 0;
     cx = cy = cz = tx = ty = tz = 0;
-    sdelay = 3000;
-    tdelay = 2000;
+    sdelay = 4000;
+    tdelay = 3000;
     delayStep = 50;
 
     Serial.println("arduino init ok");
