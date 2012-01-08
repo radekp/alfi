@@ -1206,12 +1206,16 @@ void MainWindow::on_bMill_clicked()
     closeOutFile();
     qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
 
+    int midX = (minX + maxX) / 2;
     for(int i = 0; i < count; i++)
     {
+        x1[i] = midX - x1[i] + midX;        // mirror
+        x2[i] = midX - x2[i] + midX;
+
         x1[i] = (x1[i] * 955) / 953;
         y1[i] = (y1[i] * 955) / 953;
         x2[i] = (x2[i] * 955) / 953;
-        y2[i] = (y2[i] * 955) / 953;
+        y2[i] = (y2[i] * 955) / 953;        
     }
 
 
