@@ -69,8 +69,10 @@ public:
     void down(int times);
     void left(int times);
     void right(int times);
-    void move(int axis, int pos, int target, int scale = 1, bool justSetPos = false, bool queue = false);
-    void moveBySvgCoord(int axis, int pos, int target, bool justSetPos);
+    void sendCmd(QString cmd, bool flush = true);
+    void flushQueue();
+    void move(int axis, int pos, int target, bool justSetPos = false, bool flush = true);
+    void moveBySvgCoord(int axis, int pos, int target, int driftX, bool justSetPos);
 
 private slots:
     void on_bMill_clicked();

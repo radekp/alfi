@@ -579,34 +579,16 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
     return false;
 }
 
-void MainWindow::move(int axis, int pos, int target, int scale, bool justSetPos, bool queue)
+void MainWindow::flushQueue()
 {
-    QString cmd = "a" + QString::number(axis) +
-                  " p" + QString::number(pos * scale) +
-                  " t" + QString::number(target * scale);
-
-    if(!justSetPos)
+    QString cmd = "q";
+    for(int i = 0; i < cmdQueue.count(); i++)
     {
-        cmd += " m" + QString::number(moveNo);
-        moveNo++;
+        cmd += " ";
+        cmd += cmdQueue.at(i);
     }
-
-    if(queue)
-    {
-        cmdQueue.append(cmd);
-        if(cmdQueue.count() < QUEUE_LEN || justSetPos)      // make sure that last command is m (even if QUEUE_LEN is reached)
-        {
-            return;
-        }
-        cmd = "q";
-        for(int i = 0; i < cmdQueue.count(); i++)
-        {
-            cmd += " ";
-            cmd += cmdQueue.at(i);
-        }
-        cmd += " e" + QString::number(moveNo - 1) + " ";
-        cmdQueue.clear();
-    }
+    cmd += " e" + QString::number(moveNo) + " ";
+    cmdQueue.clear();
 
     qDebug() << "cmd=" << cmd;
     QByteArray cmdBytes = cmd.toAscii();
@@ -638,13 +620,9 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool justSetPos,
         }
         remains -= count;
     }
-//    port.write(cmd.toAscii());
+    //    port.write(cmd.toAscii());
 
-    QString expect = "done" + QString::number(moveNo - 1);
-    if(queue)
-    {
-        expect = "q" + expect;
-    }
+    QString expect = "qdone" + QString::number(moveNo);
     for(;;)
     {
         port.waitForReadyRead(10);
@@ -682,6 +660,29 @@ void MainWindow::move(int axis, int pos, int target, int scale, bool justSetPos,
             return;
         }
     }
+}
+
+void MainWindow::sendCmd(QString cmd, bool flush)
+{
+    cmdQueue.append(cmd);
+    if(flush)
+    {
+        flushQueue();
+    }
+}
+
+void MainWindow::move(int axis, int pos, int target, bool justSetPos, bool flush)
+{
+    QString cmd = "a" + QString::number(axis) +
+                  " p" + QString::number(pos) +
+                  " t" + QString::number(target);
+
+    if(!justSetPos)
+    {
+        cmd += " m" + QString::number(moveNo);
+        moveNo++;
+    }
+    sendCmd(cmd, flush);
 }
 
 void MainWindow::loadImg()
@@ -996,32 +997,34 @@ void MainWindow::on_bSendSerial_clicked()
 
 void MainWindow::on_bXMinus_clicked()
 {
-    port.write("a0 p200 t0 m ");
+    move(0, 200, 0);
 }
 
 void MainWindow::on_bXPlus_clicked()
 {
-    port.write("a0 p0 t200 m ");
+    move(0, 0, 200);
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
-    port.write("a1 p200 t0 m ");
+    move(1, 200, 0);
 }
 
 void MainWindow::on_bYPlus_clicked()
 {
-    port.write("a1 p0 t200 m ");
+    move(1, 0, 200);
 }
 
 void MainWindow::on_bZMinus_clicked()
 {
-    port.write("a0 p63 t0 a2 p907 t0 m ");
+    move(0, 63, 0);
+    move(2, 907, 0);
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
-    port.write("a2 p0 t907 a0 p0 t63 m ");
+    move(2, 907, 0);
+    move(0, 0, 63);
 }
 
 static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
@@ -1047,12 +1050,18 @@ static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int ol
 // x = 10,928.8990826 steps
 // 1 step = 51.9126396641 svg points
 // steps = svg coord / 51.9126396641
-void MainWindow::moveBySvgCoord(int axis, int pos, int target, bool justSetpos)
+void MainWindow::moveBySvgCoord(int axis, int pos, int target, int driftX, bool justSetpos)
 {
     int stepsPos = (pos * 1000) / 51912;
     int stepsTarget = (target * 1000) / 51912;
 
-    move(axis, stepsPos, stepsTarget, 1, justSetpos, true);
+    if(axis == 0)
+    {
+        stepsPos += driftX;
+        stepsTarget += driftX;
+    }
+
+    move(axis, stepsPos, stepsTarget, justSetpos, false);
 }
 
 static QString num2svg(qint64 num)
@@ -1226,6 +1235,7 @@ void MainWindow::on_bMill_clicked()
     colors[0] = color;
     int lastX = cx;
     int lastY = cy;
+    int driftX = 0;
 
     for(;;)
     {
@@ -1236,8 +1246,8 @@ void MainWindow::on_bMill_clicked()
                  ty / 1000 - 500,
                  color);
 
-        moveBySvgCoord(0, cx, tx, true);
-        moveBySvgCoord(1, cy, ty, false);
+        moveBySvgCoord(0, cx, tx, driftX, true);
+        moveBySvgCoord(1, cy, ty, driftX, false);
 
         lastX = tx;
         lastY = ty;
@@ -1287,8 +1297,10 @@ void MainWindow::on_bMill_clicked()
         {
             color = color ? 0 : 1;      // all done
 
-            move(2, 0, 907, 1, false, true);           // drill the shape shifted 1mm down
-            move(0, 0, 63, 1, false, true);            // compensate x drift
+            flushQueue();
+            move(2, 0, 907, false, true);           // drill the shape shifted 1mm down
+            move(0, 0, 63, false, true);            // compensate x drift
+            driftX += 63;
 
             cx = x1[0];
             cy = y1[0];
@@ -1306,8 +1318,8 @@ void MainWindow::on_bMill_clicked()
                      cy / 1000 - 500,
                      color);
 
-            moveBySvgCoord(0, lastX, cx, true);
-            moveBySvgCoord(1, lastY, cy, false);
+            moveBySvgCoord(0, lastX, cx, driftX, true);
+            moveBySvgCoord(1, lastY, cy, driftX, false);
         }
     }
 
