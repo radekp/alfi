@@ -1001,22 +1001,22 @@ void MainWindow::on_bSendSerial_clicked()
 
 void MainWindow::on_bXMinus_clicked()
 {
-    move(0, 200, 0);
+    move(0, 0, 200);
 }
 
 void MainWindow::on_bXPlus_clicked()
 {
-    move(0, 0, 200);
+    move(0, 200, 0);
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
-    move(1, 200, 0);
+    move(1, 0, 200);
 }
 
 void MainWindow::on_bYPlus_clicked()
 {
-    move(1, 0, 200);
+    move(1, 200, 0);
 }
 
 void MainWindow::on_bZMinus_clicked()
@@ -1194,7 +1194,7 @@ void MainWindow::on_bMill_clicked()
 
             qint64 cx, cy, tx, ty;
             drillingPath(x, y, x + w, y + h,
-                         9525,                    // driller radius
+                         9525 - 4762,                    // driller radius (1.6) - some space so that pcb fits in (0.8)
                          cx, cy, tx, ty);
 
             drillStr.append("<path d=\"m ");
