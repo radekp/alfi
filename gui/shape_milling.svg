@@ -330,9 +330,6 @@
      inkscape:window-y="28"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg2" />
-  <g
-     transform="translate(-6.3805082e-8,4.4267465e-6)"
-     id="g5782">
     <path
        sodipodi:nodetypes="cc"
        id="path983313-6"
@@ -373,5 +370,4 @@
        id="path1213651-5-8"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.76908362;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
        d="m 140.403,616.35218 479.494,0" />
-  </g>
 </svg>
