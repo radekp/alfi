@@ -588,6 +588,7 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
 
 void MainWindow::flushQueue()
 {
+    return;
     QString cmd = "q";
     for(int i = 0; i < cmdQueue.count(); i++)
     {
