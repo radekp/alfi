@@ -54,7 +54,14 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 
     img.setNumColors(2);
     img.setColor(0, qRgb(255, 255, 255));
-    img.setColor(1, qRgb(0, 0, 0));
+    img.setColor(1, qRgb(255, 0, 0));
+    img.setColor(2, qRgb(0, 255, 0));
+    img.setColor(3, qRgb(0, 0, 255));
+    img.setColor(4, qRgb(0, 0, 0));
+    img.setColor(5, qRgb(255, 0, 0));
+    img.setColor(6, qRgb(0, 255, 0));
+    img.setColor(7, qRgb(0, 0, 255));
+    img.setColor(8, qRgb(0, 0, 0));
 
     uchar *bits = *imgBits = img.bits();
     memset(bits, 0, width * height);
@@ -1088,7 +1095,7 @@ static QString num2svg(qint64 num)
 }
 
 // Load svg lines to x1,y1,x2,y2 arrays and return count
-static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2, QStringList & lines, int maxCount, qint64 & minX, qint64 & maxX)
+static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2, QStringList & lines, int maxCount, bool mirror)
 {
     qDebug() << "loading " << path;
 
@@ -1105,8 +1112,8 @@ static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y
     QRegExp rwh("(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
     QRegExp rsci("[0123456789\\.-]+e[0123456789\\.-]+");     // scientific format, e.g. -8e-4
 
-    minX = 0x7fffffffffffffff;
-    maxX = 0;
+    qint64 minX = 0x7fffffffffffffff;
+    qint64 maxX = 0;
 
     // Read and parse svg file, results are in x1,x2,y1,y2 arrays
     for(;;)
@@ -1193,58 +1200,33 @@ static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y
 
     f.close();
     qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
+
+    if(mirror)
+    {
+        qint64 midX = (minX + maxX) / 2;
+        for(int i = 0; i < count; i++)
+        {
+            x1[i] = midX - x1[i] + midX;        // mirror
+            x2[i] = midX - x2[i] + midX;
+        }
+    }
+
     return count;
 }
 
-void MainWindow::on_bMill_clicked()
+void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
+                           int *colors, int count, int color, int driftX)
 {
-//    for(;;)
-//    {
-//        move(0, 0, 5000);
-//        move(1, 0, 5000);
-//        move(0, 5000, 0);
-//        move(1, 5000, 0);
-//        move(2, 0, 200);
-//    }
-
-    milling = true;
-
-    QFile f("/home/radek/alfi/gui/drilling.svg");
-    if(!f.open(QFile::ReadOnly))
-    {
-        ui->tbSerial->append(f.errorString());
-        return;
-    }
-
-    QStringList lines;
-    static qint64 x1[65535];
-    static qint64 y1[65535];
-    static qint64 x2[65535];
-    static qint64 y2[65535];
-    qint64 minX, maxX;
-
-    int count = loadSvg("/home/radek/alfi/gui/drilling.svg", x1, y1, x2, y2, lines, 65535, minX, maxX);
-
-    qint64 midX = (minX + maxX) / 2;
-    for(int i = 0; i < count; i++)
-    {
-        x1[i] = midX - x1[i] + midX;        // mirror
-        x2[i] = midX - x2[i] + midX;
-    }
-
     // Current and target positions on svg
     qint64 cx = x1[0];
     qint64 cy = y1[0];
     qint64 tx = x2[0];
     qint64 ty = y2[0];
 
-    static int colors[65535];
-    memset(colors, 0, 65535);
-    int color = 1;
+    memset(colors, color ? 0 : 1, 65535);
     colors[0] = color;
     int lastX = cx;
     int lastY = cy;
-    int driftX = 0;
 
     for(;;)
     {
@@ -1304,18 +1286,9 @@ void MainWindow::on_bMill_clicked()
         }
         else
         {
-            color = color ? 0 : 1;      // all done
-
+            // all done
             flushQueue();
-            move(2, 0, 907, false, true);           // drill the shape shifted 1mm down
-            move(0, 0, 63, false, true);            // compensate x drift
-            driftX += 63;
-
-            cx = x1[0];
-            cy = y1[0];
-            tx = x2[0];
-            ty = y2[0];
-            colors[0] = color;
+            return;
         }
 
         if(cx != lastX || cy != lastY)      // if lines on svg are not continuous
@@ -1333,6 +1306,128 @@ void MainWindow::on_bMill_clicked()
     }
 }
 
+void MainWindow::switchShape(qint64 *shapeAX1, qint64 *shapeAY1, qint64 *shapeBX1, qint64 *shapeBY1, int driftX)
+{
+    moveBySvgCoord(0, shapeAX1[0], shapeBX1[0], driftX, true);
+    moveBySvgCoord(0, shapeAY1[0], shapeBY1[0], driftX, false);
+}
+
+void MainWindow::moveZ(int zDirection, int &driftX)
+{
+    if(zDirection == 1)
+    {
+        move(2, 0, 907, false, true);           // drill the shape shifted 1mm down
+        move(0, 0, 63, false, true);            // compensate x drift
+        driftX += 63;
+    }
+    else if(zDirection == -1)
+    {
+        move(0, 63, 0, false, true);            // compensate x drift
+        move(2, 907, 0, false, true);           // drill the shape shifted 1mm down
+        driftX -= 63;
+    }
+}
+
+void MainWindow::on_bMill_clicked()
+{
+//    for(;;)
+//    {
+//        move(0, 0, 5000);
+//        move(1, 0, 5000);
+//        move(0, 5000, 0);
+//        move(1, 5000, 0);
+//        move(2, 0, 200);
+//    }
+
+    milling = true;
+
+    // PCB
+    QStringList pcbLines;
+    static qint64 pcbX1[65535];
+    static qint64 pcbY1[65535];
+    static qint64 pcbX2[65535];
+    static qint64 pcbY2[65535];
+    static int pcbColors[65535];
+
+    int pcbCount = loadSvg("/home/radek/alfi/gui/pcb_milling.svg", pcbX1, pcbY1, pcbX2, pcbY2, pcbLines, 65535, true);
+
+    // Outer shape
+    QStringList shapeLines;
+    static qint64 shapeX1[65535];
+    static qint64 shapeY1[65535];
+    static qint64 shapeX2[65535];
+    static qint64 shapeY2[65535];
+    static int shapeColors[65535];
+
+    int shapeCount = loadSvg("/home/radek/alfi/gui/shape_milling.svg", shapeX1, shapeY1, shapeX2, shapeY2, shapeLines, 65535, true);
+
+    // LCD module hole
+    QStringList lcmLines;
+    static qint64 lcmX1[65535];
+    static qint64 lcmY1[65535];
+    static qint64 lcmX2[65535];
+    static qint64 lcmY2[65535];
+    static int lcmColors[65535];
+
+    int lcmCount = loadSvg("/home/radek/alfi/gui/lcm_milling.svg", lcmX1, lcmY1, lcmX2, lcmY2, lcmLines, 65535, true);
+
+    // Front display hole (a bit smaller then LCM)
+    QStringList lcdLines;
+    static qint64 lcdX1[65535];
+    static qint64 lcdY1[65535];
+    static qint64 lcdX2[65535];
+    static qint64 lcdY2[65535];
+    static int lcdColors[65535];
+
+    int lcdCount = loadSvg("/home/radek/alfi/gui/lcd_milling.svg", lcdX1, lcdY1, lcdX2, lcdY2, lcdLines, 65535, true);
+
+    int driftX = 0;
+
+    // Start with outer shape just 2mm down
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX);   // 0mm
+    moveZ(1, driftX);
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 2, driftX);   // 1mm
+    moveZ(1, driftX);
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 3, driftX);  // 2mm
+    moveZ(-1, driftX);
+    moveZ(-1, driftX);
+
+    // LCD+LCM+PCB 5mm down
+    switchShape(shapeX1, shapeY1, pcbX1, pcbY1, driftX);
+    for(int i = 1; ; i++)
+    {
+        millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX);      // 0..5mm
+        switchShape(pcbX1, pcbY1, lcdX1, lcdY1, driftX);
+        millShape(lcdX1, lcdY1, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX);
+        switchShape(lcdX1, lcdY1, lcmX1, lcmY1, driftX);
+        millShape(lcmX1, lcmY1, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX);
+        if(i == 5)
+        {
+            break;
+        }
+        switchShape(lcmX1, lcmY1, pcbX1, pcbY1, driftX);
+        moveZ(1, driftX);
+    }
+
+    // LCM module+LCD hole 2mm down
+    moveZ(1, driftX);
+    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 1, driftX);   // 6mm
+    switchShape(lcmX1, lcmY1, lcdX1, lcdY1, driftX);
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 1, driftX);
+    moveZ(1, driftX);
+
+    switchShape(lcdX1, lcdY1, lcmX1, lcmY1, driftX);
+    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 2, driftX);   // 7mm
+    switchShape(lcmX1, lcmY1, lcdX1, lcdY1, driftX);
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 2, driftX);
+    moveZ(1, driftX);
+
+    // LCD display 2mm down
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 3, driftX);   // 8mm
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 4, driftX);   // 9mm
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 5, driftX);   // 10mm
+}
+
 // Compute milling path taking into account driller radius
 void MainWindow::on_bMillPath_clicked()
 {
@@ -1341,9 +1436,8 @@ void MainWindow::on_bMillPath_clicked()
     static qint64 y1[65535];
     static qint64 x2[65535];
     static qint64 y2[65535];
-    qint64 minX, maxX;
 
-    int count = loadSvg("/home/radek/alfi/gui/shape.svg", x1, y1, x2, y2, lines, 65535, minX, maxX);
+    int count = loadSvg("/home/radek/alfi/gui/shape.svg", x1, y1, x2, y2, lines, 65535, false);
 
     openOutFile("/home/radek/Plocha/shape_milling.svg");
 
