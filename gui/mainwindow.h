@@ -74,7 +74,8 @@ public:
     void move(int axis, int pos, int target, bool justSetPos = false, bool flush = true);
     void moveBySvgCoord(int axis, int pos, int target, int driftX, bool justSetPos);
     void millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
-                   int *colors, int count, int color, int driftX);
+                   int *colors, int count, int color, int driftX,
+                   qint64 & lastX, qint64 & lastY);
 
     void switchShape(qint64 *shapeAX1, qint64 *shapeAY1, qint64 *shapeBX1, qint64 * shapeBY1, int driftX);
     void moveZ(int zDirection, int & driftX);

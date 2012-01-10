@@ -1216,39 +1216,20 @@ static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y
 }
 
 void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
-                           int *colors, int count, int color, int driftX)
+                           int *colors, int count, int color, int driftX,
+                           qint64 & lastX, qint64 & lastY)
 {
     // Current and target positions on svg
-    qint64 cx = x1[0];
-    qint64 cy = y1[0];
-    qint64 tx = x2[0];
-    qint64 ty = y2[0];
+    qint64 cx;
+    qint64 cy;
+    qint64 tx = lastX;
+    qint64 ty = lastY;
 
     memset(colors, color ? 0 : 1, 65535);
-    colors[0] = color;
-    int lastX = cx;
-    int lastY = cy;
 
     for(;;)
     {
-        drawLine(prnBits,
-                 cx / 1000,
-                 cy / 1000 - 500,
-                 tx / 1000,
-                 ty / 1000 - 500,
-                 color);
-
-        moveBySvgCoord(0, cx, tx, driftX, true);
-        moveBySvgCoord(1, cy, ty, driftX, false);
-
-        lastX = tx;
-        lastY = ty;
-
-        update();
-        QApplication::processEvents();
-        Sleeper::msleep(10);
-
-        // Find nearest start of line
+        // Find nearest line
         qint64 ndist = 0x7fffffffffffffff;
         int nindex = -1;
         bool swap = false;
@@ -1292,7 +1273,7 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
             return;
         }
 
-        if(cx != lastX || cy != lastY)      // if lines on svg are not continuous
+        if(cx != lastX || cy != lastY)      // if lines on are not continuous
         {
             drawLine(prnBits,
                      lastX / 1000,
@@ -1304,6 +1285,27 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
             moveBySvgCoord(0, lastX, cx, driftX, true);
             moveBySvgCoord(1, lastY, cy, driftX, false);
         }
+
+        drawLine(prnBits,
+                 cx / 1000,
+                 cy / 1000 - 500,
+                 tx / 1000,
+                 ty / 1000 - 500,
+                 color);
+
+        update();
+        QApplication::processEvents();
+        Sleeper::msleep(10);
+
+        moveBySvgCoord(0, cx, tx, driftX, true);
+        moveBySvgCoord(1, cy, ty, driftX, false);
+
+        lastX = tx;
+        lastY = ty;
+
+        update();
+        QApplication::processEvents();
+        Sleeper::msleep(10);
     }
 }
 
@@ -1383,13 +1385,15 @@ void MainWindow::on_bMill_clicked()
     int lcdCount = loadSvg("/home/radek/alfi/gui/lcd_milling.svg", lcdX1, lcdY1, lcdX2, lcdY2, lcdLines, 65535, true);
 
     int driftX = 0;
+    qint64 lastX = shapeX1[0];
+    qint64 lastY = shapeY1[0];
 
     // Start with outer shape just 2mm down
-    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX);   // 0mm
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, lastX, lastY);   // 0mm
     moveZ(1, driftX);
-    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 2, driftX);   // 1mm
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 2, driftX, lastX, lastY);   // 1mm
     moveZ(1, driftX);
-    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 3, driftX);  // 2mm
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 3, driftX, lastX, lastY);  // 2mm
     moveZ(-1, driftX);
     moveZ(-1, driftX);
 
@@ -1397,11 +1401,11 @@ void MainWindow::on_bMill_clicked()
     switchShape(shapeX1, shapeY1, pcbX1, pcbY1, driftX);
     for(int i = 1; ; i++)
     {
-        millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX);      // 0..5mm
+        millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX, lastX, lastY);      // 0..5mm
         switchShape(pcbX1, pcbY1, lcdX1, lcdY1, driftX);
-        millShape(lcdX1, lcdY1, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX);
+        millShape(lcdX1, lcdY1, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX, lastX, lastY);
         switchShape(lcdX1, lcdY1, lcmX1, lcmY1, driftX);
-        millShape(lcmX1, lcmY1, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX);
+        millShape(lcmX1, lcmY1, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX, lastX, lastY);
         if(i == 5)
         {
             break;
@@ -1412,21 +1416,21 @@ void MainWindow::on_bMill_clicked()
 
     // LCM module+LCD hole 2mm down
     moveZ(1, driftX);
-    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 1, driftX);   // 6mm
+    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 1, driftX, lastX, lastY);   // 6mm
     switchShape(lcmX1, lcmY1, lcdX1, lcdY1, driftX);
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 1, driftX);
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 1, driftX, lastX, lastY);
     moveZ(1, driftX);
 
     switchShape(lcdX1, lcdY1, lcmX1, lcmY1, driftX);
-    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 2, driftX);   // 7mm
+    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 2, driftX, lastX, lastY);   // 7mm
     switchShape(lcmX1, lcmY1, lcdX1, lcdY1, driftX);
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 2, driftX);
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 2, driftX, lastX, lastY);
     moveZ(1, driftX);
 
     // LCD display 2mm down
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 3, driftX);   // 8mm
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 4, driftX);   // 9mm
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 5, driftX);   // 10mm
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 3, driftX, lastX, lastY);   // 8mm
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 4, driftX, lastX, lastY);   // 9mm
+    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 5, driftX, lastX, lastY);   // 10mm
 }
 
 // Compute milling path taking into account driller radius
