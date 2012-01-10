@@ -75,6 +75,7 @@ public:
     void moveBySvgCoord(int axis, int pos, int target, int driftX, bool justSetPos);
 
 private slots:
+    void on_bMillPath_clicked();
     void on_bMill_clicked();
     void on_bZPlus_clicked();
     void on_bZMinus_clicked();

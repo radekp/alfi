@@ -196,7 +196,7 @@ static void drawLine(uchar *bits, int x0, int y0, int x1, int y1, int color)
 //  A     B
 
 
-static void drillingPath(qint64 ax, qint64 ay,
+static void millingPath(qint64 ax, qint64 ay,
                          qint64 bx, qint64 by,
                          qint64 r,
                          qint64 & x0, qint64 & y0,
@@ -312,11 +312,11 @@ int populateRegion(uchar *bits, int x, int y, QList<QPoint> & region)
     }
     setPixel(bits, x, y, 0);
 
-    int around =
-            populateRegion(bits, x + 1, y, region) +
-            populateRegion(bits, x - 1, y, region) +
-            populateRegion(bits, x, y - 1, region) +
-            populateRegion(bits, x, y + 1, region);
+//    int around =
+//            populateRegion(bits, x + 1, y, region) +
+//            populateRegion(bits, x - 1, y, region) +
+//            populateRegion(bits, x, y - 1, region) +
+//            populateRegion(bits, x, y + 1, region);
 //            populateRegion(bits, x - 1, y - 1, region) +
 //            populateRegion(bits, x + 1, y - 1, region) +
 //            populateRegion(bits, x + 1, y + 1, region) +
@@ -1031,21 +1031,21 @@ void MainWindow::on_bZPlus_clicked()
     move(0, 0, 63);
 }
 
-static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
-{
-    if(oldX == nx && oldY == ny)
-    {
-        return false;       // never return to the same point
-    }
-    if(isWhite(img, nx, ny))
-    {
-        return false;
-    }
-    *x = nx;
-    *y = ny;
-    setPixel(bits, nx, ny, 1);
-    return true;
-}
+//static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
+//{
+//    if(oldX == nx && oldY == ny)
+//    {
+//        return false;       // never return to the same point
+//    }
+//    if(isWhite(img, nx, ny))
+//    {
+//        return false;
+//    }
+//    *x = nx;
+//    *y = ny;
+//    setPixel(bits, nx, ny, 1);
+//    return true;
+//}
 
 // Move plotter using svg coordinates
 //
@@ -1087,44 +1087,28 @@ static QString num2svg(qint64 num)
     return res;
 }
 
-void MainWindow::on_bMill_clicked()
+// Load svg lines to x1,y1,x2,y2 arrays and return count
+static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2, QStringList & lines, int maxCount, qint64 & minX, qint64 & maxX)
 {
-//    for(;;)
-//    {
-//        move(0, 0, 5000);
-//        move(1, 0, 5000);
-//        move(0, 5000, 0);
-//        move(1, 5000, 0);
-//        move(2, 0, 200);
-//    }
+    qDebug() << "loading " << path;
 
-    milling = true;
-
-    QFile f("/home/radek/alfi/gui/drilling.svg");
+    QFile f(path);
     if(!f.open(QFile::ReadOnly))
     {
-        ui->tbSerial->append(f.errorString());
-        return;
+        qCritical() << "failed to load " << path << ": " << f.errorString();
+        return 0;
     }
 
-    QStringList lines;
-    static qint64 x1[65535];
-    static qint64 y1[65535];
-    static qint64 x2[65535];
-    static qint64 y2[65535];
     int count = 0;
 
     QRegExp rxy("d=\"([mM]) (-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
     QRegExp rwh("(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
     QRegExp rsci("[0123456789\\.-]+e[0123456789\\.-]+");     // scientific format, e.g. -8e-4
 
-    qint64 minX = 0xfffffff;
-    qint64 maxX = 0;
-
-    openOutFile("/home/radek/Plocha/drilling.svg");
+    minX = 0x7fffffffffffffff;
+    maxX = 0;
 
     // Read and parse svg file, results are in x1,x2,y1,y2 arrays
-    QString drillStr;
     for(;;)
     {
         QByteArray line = f.readLine();
@@ -1139,7 +1123,7 @@ void MainWindow::on_bMill_clicked()
         if(pos >= 0)
         {
             line.replace(rsci.cap(0), "0");
-            qDebug() << "removed scientific, new line=" << line;
+            qDebug() << "removed scientific format, new line=" << line;
         }
 
         pos = rxy.indexIn(line);
@@ -1174,14 +1158,13 @@ void MainWindow::on_bMill_clicked()
                 h -= y;
             }
 
-            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;            
+            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
 
             x1[count] = x;
             y1[count] = y;
             x2[count] = x + w;
             y2[count] = y + h;
             count++;
-
             lines.append(line);
 
 //            drawLine(prnBits,
@@ -1191,17 +1174,11 @@ void MainWindow::on_bMill_clicked()
 //                     (y + h) / 1000 - 500,
 //                     1);
 
-
-            qint64 cx, cy, tx, ty;
-            drillingPath(x, y, x + w, y + h,
-                         9525 - 4762,                    // driller radius (1.6) - some space so that pcb fits in (0.8)
-                         cx, cy, tx, ty);
-
-            drillStr.append("<path d=\"m ");
-            drillStr.append(num2svg(cx) + "," + num2svg(cy) + " " + num2svg(tx - cx) + "," + num2svg(ty - cy));
-            drillStr.append("\"\nstyle=\"fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.76908362;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none\"\n");
-            drillStr.append("id=\"path" + QString::number(x + y + w + h) + "\"\n");
-            drillStr.append("/>\n\n");
+            if(count > maxCount)
+            {
+                qWarning() << "svg file longer then maxCount=" << maxCount;
+                break;
+            }
 
             x += w;
             y += h;
@@ -1214,18 +1191,46 @@ void MainWindow::on_bMill_clicked()
         }
     }
 
-    outFile->write(drillStr.toLatin1());
-    outFile->write("\n\n\n\n\n\n\n\n\n\n\n\n");
-    closeOutFile();
+    f.close();
     qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
+    return count;
+}
 
-    int midX = (minX + maxX) / 2;
+void MainWindow::on_bMill_clicked()
+{
+//    for(;;)
+//    {
+//        move(0, 0, 5000);
+//        move(1, 0, 5000);
+//        move(0, 5000, 0);
+//        move(1, 5000, 0);
+//        move(2, 0, 200);
+//    }
+
+    milling = true;
+
+    QFile f("/home/radek/alfi/gui/drilling.svg");
+    if(!f.open(QFile::ReadOnly))
+    {
+        ui->tbSerial->append(f.errorString());
+        return;
+    }
+
+    QStringList lines;
+    static qint64 x1[65535];
+    static qint64 y1[65535];
+    static qint64 x2[65535];
+    static qint64 y2[65535];
+    qint64 minX, maxX;
+
+    int count = loadSvg("/home/radek/alfi/gui/drilling.svg", x1, y1, x2, y2, lines, 65535, minX, maxX);
+
+    qint64 midX = (minX + maxX) / 2;
     for(int i = 0; i < count; i++)
     {
         x1[i] = midX - x1[i] + midX;        // mirror
         x2[i] = midX - x2[i] + midX;
     }
-
 
     // Current and target positions on svg
     qint64 cx = x1[0];
@@ -1326,7 +1331,40 @@ void MainWindow::on_bMill_clicked()
             moveBySvgCoord(1, lastY, cy, driftX, false);
         }
     }
+}
 
+// Compute milling path taking into account driller radius
+void MainWindow::on_bMillPath_clicked()
+{
+    QStringList lines;
+    static qint64 x1[65535];
+    static qint64 y1[65535];
+    static qint64 x2[65535];
+    static qint64 y2[65535];
+    qint64 minX, maxX;
+
+    int count = loadSvg("/home/radek/alfi/gui/shape.svg", x1, y1, x2, y2, lines, 65535, minX, maxX);
+
+    openOutFile("/home/radek/Plocha/shape_milling.svg");
+
+    QString millStr;
+    for(int i = 0; i < count; i++)
+    {
+        qint64 cx, cy, tx, ty;
+        millingPath(x1[i], y1[i], x2[i], y2[i],
+                    9525 - 4762,                    // driller radius (1.6) - some space so that pcb fits in (0.8)
+                    cx, cy, tx, ty);
+
+        millStr.append("<path d=\"m ");
+        millStr.append(num2svg(cx) + "," + num2svg(cy) + " " + num2svg(tx - cx) + "," + num2svg(ty - cy));
+        millStr.append("\"\nstyle=\"fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.76908362;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none\"\n");
+        millStr.append("id=\"path" + QString::number(x1[i] + y1[i]) + "\"\n");
+        millStr.append("/>\n\n");
+    }
+
+    outFile->write(millStr.toLatin1());
+    closeOutFile();
+}
 
 
 //    int scale = 1;
@@ -1464,4 +1502,3 @@ void MainWindow::on_bMill_clicked()
 //            findPos = false;    // found pos, we can start real moving
 //        }
 //    }
-}
