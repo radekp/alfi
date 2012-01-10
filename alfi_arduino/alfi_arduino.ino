@@ -76,6 +76,30 @@ int delayAndCheckLimit(int delayUs, int inputNo, int pos, int target)
     return delayUs;
 }
 
+void xOff()
+{
+    digitalWrite(2, LOW);
+    digitalWrite(3, LOW);
+    digitalWrite(4, LOW);
+    digitalWrite(5, LOW);
+}
+
+void yOff()
+{
+    digitalWrite(6, LOW);
+    digitalWrite(7, LOW);
+    digitalWrite(8, LOW);
+    digitalWrite(9, LOW);
+}
+
+void zOff()
+{
+    digitalWrite(10, LOW);
+    digitalWrite(11, LOW);
+    digitalWrite(12, LOW);
+    digitalWrite(13, LOW);
+}
+
 // One step to x
 void moveX()
 {
@@ -244,10 +268,12 @@ void drawLine(int x0, int y0, int x1, int y1)
         if (cx != x0) {
             cx = x0;
             moveX();
+            xOff();
         }
         if (cy != y0) {
             cy = y0;
             moveY();
+            yOff();
         }
 
         if (x0 == x1 && y0 == y1) {
@@ -327,18 +353,9 @@ void loop()
         }
         // if not moving, stop current on all motor wirings
         if (cmd == 0) {
-            digitalWrite(13, LOW);
-            digitalWrite(12, LOW);
-            digitalWrite(11, LOW);
-            digitalWrite(10, LOW);
-            digitalWrite(9, LOW);
-            digitalWrite(8, LOW);
-            digitalWrite(7, LOW);
-            digitalWrite(6, LOW);
-            digitalWrite(5, LOW);
-            digitalWrite(4, LOW);
-            digitalWrite(3, LOW);
-            digitalWrite(2, LOW);
+            xOff();
+            yOff();
+            zOff();
         }
         // check if data has been sent from the computer:
         if (!Serial.available()) {
@@ -399,10 +416,12 @@ void loop()
         while (cz < tz) {
             cz++;
             moveZ();
+            zOff();
         }
         while (cz > tz) {
             cz--;
             moveZ();
+            zOff();
         }
         if (cmdIndex < 0) {
             Serial.print("done");
