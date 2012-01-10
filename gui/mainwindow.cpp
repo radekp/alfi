@@ -602,7 +602,7 @@ void MainWindow::flushQueue()
     int remains = cmdBytes.length();
     for(int i = 0; remains > 0; i += 64)
     {
-        int count = remains >= 64 ? 64 : remains;
+        int count = (remains >= 64 ? 64 : remains);
         port.write(cmdBytes.constData() + i, count);
 
         for(;;)
@@ -1437,9 +1437,9 @@ void MainWindow::on_bMillPath_clicked()
     static qint64 x2[65535];
     static qint64 y2[65535];
 
-    int count = loadSvg("/home/radek/alfi/gui/shape.svg", x1, y1, x2, y2, lines, 65535, false);
+    int count = loadSvg("/home/radek/alfi/gui/lcm.svg", x1, y1, x2, y2, lines, 65535, false);
 
-    openOutFile("/home/radek/Plocha/shape_milling.svg");
+    openOutFile("/home/radek/alfi/gui/lcm_milling.svg");
 
     QString millStr;
     for(int i = 0; i < count; i++)
