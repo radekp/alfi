@@ -1246,7 +1246,7 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
 
         update();
         QApplication::processEvents();
-        //Sleeper::msleep(1000);
+        Sleeper::msleep(10);
 
         // Find nearest start of line
         qint64 ndist = 0x7fffffffffffffff;
