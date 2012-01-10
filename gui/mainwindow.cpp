@@ -588,7 +588,6 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
 
 void MainWindow::flushQueue()
 {
-    return;
     QString cmd = "q";
     for(int i = 0; i < cmdQueue.count(); i++)
     {
@@ -1285,10 +1284,6 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
 
             moveBySvgCoord(0, lastX, cx, driftX, true);
             moveBySvgCoord(1, lastY, cy, driftX, false);
-
-            update();
-            QApplication::processEvents();
-            Sleeper::msleep(10);
         }
 
         drawLine(prnBits,
@@ -1306,7 +1301,7 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
 
         update();
         QApplication::processEvents();
-        Sleeper::msleep(10);
+    //    Sleeper::msleep(10);
     }
 }
 
@@ -1393,29 +1388,23 @@ void MainWindow::on_bMill_clicked()
     moveZ(-1, driftX);
 
     // LCD+LCM+PCB 5mm down
-    for(int i = 1; ; i++)
+    for(int i = 1; i<= 5; i++)
     {
         millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX, pcbLines, lastX, lastY);      // 0..5mm
         millShape(lcdX1, lcdY1, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX, lcdLines, lastX, lastY);
         millShape(lcmX1, lcmY1, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX, lcmLines, lastX, lastY);
-        if(i == 5)
-        {
-            break;
-        }
         moveZ(1, driftX);
     }
 
-    // LCM module+LCD hole 2mm down
-    moveZ(1, driftX);
-    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 1, driftX, lcmLines, lastX, lastY);   // 6mm
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 1, driftX, lcdLines, lastX, lastY);
-    moveZ(1, driftX);
+    // LCM module+LCD hole 4mm down
+    for(int i = 1; i <= 4; i++)
+    {
+        millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 1, driftX, lcmLines, lastX, lastY);   // 6mm
+        millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 1, driftX, lcdLines, lastX, lastY);
+        moveZ(1, driftX);
+    }
 
-    millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 2, driftX, lcmLines, lastX, lastY);   // 7mm
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 2, driftX, lcdLines, lastX, lastY);
-    moveZ(1, driftX);
-
-    // LCD display 2mm down
+    // LCD display 3mm down
     millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 3, driftX, lcdLines, lastX, lastY);   // 8mm
     millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 4, driftX, lcdLines, lastX, lastY);   // 9mm
     millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 5, driftX, lcdLines, lastX, lastY);   // 10mm
