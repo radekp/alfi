@@ -62,7 +62,29 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
     img.setColor(6, qRgb(0, 255, 0));
     img.setColor(7, qRgb(0, 0, 255));
     img.setColor(8, qRgb(0, 0, 0));
-
+    img.setColor(9, qRgb(255, 0, 0));
+    img.setColor(10, qRgb(0, 255, 0));
+    img.setColor(11, qRgb(0, 0, 255));
+    img.setColor(12, qRgb(0, 0, 0));
+    img.setColor(13, qRgb(255, 0, 0));
+    img.setColor(14, qRgb(0, 255, 0));
+    img.setColor(15, qRgb(0, 0, 255));
+    img.setColor(16, qRgb(0, 0, 0));
+    img.setColor(17, qRgb(255, 0, 0));
+    img.setColor(18, qRgb(0, 255, 0));
+    img.setColor(19, qRgb(0, 0, 255));
+    img.setColor(20, qRgb(0, 0, 0));
+    img.setColor(21, qRgb(0, 255, 0));
+    img.setColor(22, qRgb(0, 0, 255));
+    img.setColor(23, qRgb(0, 0, 0));
+    img.setColor(24, qRgb(255, 0, 0));
+    img.setColor(25, qRgb(0, 255, 0));
+    img.setColor(26, qRgb(0, 0, 255));
+    img.setColor(27, qRgb(0, 0, 0));
+    img.setColor(28, qRgb(255, 0, 0));
+    img.setColor(29, qRgb(0, 255, 0));
+    img.setColor(30, qRgb(0, 0, 255));
+    img.setColor(31, qRgb(0, 0, 0));
     uchar *bits = *imgBits = img.bits();
     memset(bits, 0, width * height);
 }
@@ -594,7 +616,7 @@ void MainWindow::flushQueue()
         cmd += " ";
         cmd += cmdQueue.at(i);
     }
-    cmd += " e" + QString::number(moveNo) + " ";
+    cmd += " e" + QString::number(++moveNo) + " ";
     cmdQueue.clear();
 
     qDebug() << "cmd=" << cmd;
@@ -630,6 +652,7 @@ void MainWindow::flushQueue()
     //    port.write(cmd.toAscii());
 
     QString expect = "qdone" + QString::number(moveNo);
+    qDebug() << "expect=" << expect;
     for(;;)
     {
         port.waitForReadyRead(10);
@@ -686,8 +709,7 @@ void MainWindow::move(int axis, int pos, int target, bool justSetPos, bool flush
 
     if(!justSetPos)
     {
-        cmd += " m" + QString::number(moveNo);
-        moveNo++;
+        cmd += " m" + QString::number(++moveNo);
         if(cmdQueue.count() > QUEUE_LEN)
         {
             flush = true;
@@ -1305,20 +1327,27 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
     }
 }
 
-void MainWindow::moveZ(int zDirection, int &driftX)
+// Move z axis in 0.5 mm steps
+void MainWindow::moveZ(int z, int &driftX)
 {
-    if(zDirection == 1)
+    sendCmd("s8000 d4000");
+    flushQueue();
+    while(z > 0)
     {
-        move(2, 0, 907, false, true);           // drill the shape shifted 1mm down
-        move(0, 0, 63, false, true);            // compensate x drift
-        driftX += 63;
+        move(2, 0, 907 / 2, false, true);           // drill the shape shifted 1mm down
+        move(0, 0, 63 / 2, false, true);            // compensate x drift
+        driftX += 63 / 2;
+        z--;
     }
-    else if(zDirection == -1)
+    while(z < 0)
     {
-        move(0, 63, 0, false, true);            // compensate x drift
-        move(2, 907, 0, false, true);           // drill the shape shifted 1mm down
-        driftX -= 63;
+        move(0, 63 / 2, 0, false, true);            // compensate x drift
+        move(2, 907 / 2, 0, false, true);           // drill the shape shifted 1mm down
+        driftX -= 63 / 2;
+        z++;
     }
+    sendCmd("s3600 d2400");
+    flushQueue();
 }
 
 void MainWindow::on_bMill_clicked()
@@ -1378,36 +1407,50 @@ void MainWindow::on_bMill_clicked()
     qint64 lastX = shapeX1[0];
     qint64 lastY = shapeY1[0];
 
-    // Start with outer shape just 2mm down
+    // Start with outer shape just 0.5mm down
     millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);   // 0mm
     moveZ(1, driftX);
-    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 2, driftX, shapeLines, lastX, lastY);   // 1mm
-    moveZ(1, driftX);
-    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 3, driftX, shapeLines, lastX, lastY);  // 2mm
-    moveZ(-1, driftX);
-    moveZ(-1, driftX);
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 2, driftX, shapeLines, lastX, lastY);   // 0.5mm
+    moveZ(-2, driftX);
 
-    // LCD+LCM+PCB 5mm down
-    for(int i = 1; i<= 5; i++)
+    // Move to pcb -0.5 above and mill it 5mm down
+    for(int i = 1; i<= 11; i++)
     {
-        millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX, pcbLines, lastX, lastY);      // 0..5mm
-        millShape(lcdX1, lcdY1, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX, lcdLines, lastX, lastY);
-        millShape(lcmX1, lcmY1, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX, lcmLines, lastX, lastY);
+        millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX, pcbLines, lastX, lastY);      // -0.5..5mm
         moveZ(1, driftX);
     }
 
-    // LCM module+LCD hole 4mm down
-    for(int i = 1; i <= 4; i++)
+    // Move to LCM -0.5 above
+    moveZ(-11, driftX);
+
+    // LCM module 5mm + 4mm down
+    for(int i = 1; i <= 19; i++)
     {
-        millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, 1, driftX, lcmLines, lastX, lastY);   // 6mm
-        millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 1, driftX, lcdLines, lastX, lastY);
+        millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX, lcmLines, lastX, lastY);   // -0.5..9mm
         moveZ(1, driftX);
     }
 
-    // LCD display 3mm down
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 3, driftX, lcdLines, lastX, lastY);   // 8mm
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 4, driftX, lcdLines, lastX, lastY);   // 9mm
-    millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, 5, driftX, lcdLines, lastX, lastY);   // 10mm
+    // Move to LCD -0.5 above
+    moveZ(-19, driftX);
+
+    // LCD display 5+4+3mm down
+    for(int i = 1; i <= 25; i++)
+    {
+        millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX, lcdLines, lastX, lastY);   // -0.5..12mm
+        moveZ(1, driftX);
+    }
+
+    // Move to outer shape -0.5 above
+    moveZ(-25, driftX);
+
+    // Outer shape 5+4+3+3mm down
+    for(int i = 1; i <= 31; i++)
+    {
+        millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);   // -0.5..15mm
+        moveZ(1, driftX);
+    }
+
+    moveZ(-31, driftX);
 }
 
 // Compute milling path taking into account driller radius

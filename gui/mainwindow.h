@@ -78,7 +78,7 @@ public:
                    QStringList & lines,
                    qint64 & lastX, qint64 & lastY);
 
-    void moveZ(int zDirection, int & driftX);
+    void moveZ(int z, int & driftX);
 
 private slots:
     void on_bMillPath_clicked();
