@@ -1331,7 +1331,6 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
 void MainWindow::moveZ(int z, int &driftX)
 {
     sendCmd("s8000 d4000");
-    flushQueue();
     while(z > 0)
     {
         move(2, 0, 907 / 2, false, true);           // drill the shape shifted 1mm down
@@ -1347,7 +1346,6 @@ void MainWindow::moveZ(int z, int &driftX)
         z++;
     }
     sendCmd("s3600 d2400");
-    flushQueue();
 }
 
 void MainWindow::on_bMill_clicked()
@@ -1414,7 +1412,7 @@ void MainWindow::on_bMill_clicked()
     moveZ(-2, driftX);
 
     // Move to pcb -0.5 above and mill it 5mm down
-    for(int i = 1; i<= 11; i++)
+    for(int i = 1; i <= 11; i++)
     {
         millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX, pcbLines, lastX, lastY);      // -0.5..5mm
         moveZ(1, driftX);
