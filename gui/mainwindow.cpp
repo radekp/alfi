@@ -1239,7 +1239,7 @@ static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y
 void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
                            int *colors, int count, int color, int driftX,
                            QStringList & lines,
-                           qint64 & lastX, qint64 & lastY)
+                           qint64 & lastX, qint64 & lastY, bool firstPoint)
 {
     // Current and target positions on svg
     qint64 cx;
@@ -1276,6 +1276,11 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
             ndist = dist;
             nindex = i;
             swap = (dist2 < dist1);
+            if(firstPoint)              // make sure we start from index=0 if requested
+            {
+                firstPoint = false;
+                ndist = -1;
+            }
         }
 
         if(nindex >= 0)

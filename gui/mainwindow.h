@@ -76,7 +76,7 @@ public:
     void millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
                    int *colors, int count, int color, int driftX,
                    QStringList & lines,
-                   qint64 & lastX, qint64 & lastY);
+                   qint64 & lastX, qint64 & lastY, bool firstPoint = true);
 
     void moveZ(int z, int & driftX);
 
