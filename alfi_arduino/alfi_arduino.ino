@@ -145,7 +145,10 @@ void moveX()
         break;                  // 53
     }
     delayX = delayAndCheckLimit(delayX, A2, cx, tx);
-    delayY = delayZ = sdelay;
+    if (delayY > sdelay) {
+        delayY += delayStep;
+    }
+    delayZ = sdelay;
 }
 
 // One step to y
@@ -193,7 +196,10 @@ void moveY()
         break;                  // 68
     }
     delayY = delayAndCheckLimit(delayY, A0, cy, ty);
-    delayX = delayZ = sdelay;
+    if (delayX > sdelay) {
+        delayX += delayStep;
+    }
+    delayZ = sdelay;
 }
 
 // One step to z
