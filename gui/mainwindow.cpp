@@ -709,6 +709,18 @@ void MainWindow::sendCmd(QString cmd, bool flush)
 
 void MainWindow::move(int axis, int pos, int target, bool justSetPos, bool flush)
 {
+    int delta = target - pos;
+    if(delta > 0)
+    {
+        pos = 0;
+        target = delta;
+    }
+    else
+    {
+        target = 0;
+        pos = -delta;
+    }
+
     QString cmd = "a" + QString::number(axis) +
                   " p" + QString::number(pos) +
                   " t" + QString::number(target);
@@ -1036,22 +1048,22 @@ void MainWindow::on_bSendSerial_clicked()
 
 void MainWindow::on_bXMinus_clicked()
 {
-    move(0, 0, 200);
+    move(0, 0, ui->spinBox->value());
 }
 
 void MainWindow::on_bXPlus_clicked()
 {
-    move(0, 200, 0);
+    move(0, ui->spinBox->value(), 0);
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
-    move(1, 0, 200);
+    move(1, 0, ui->spinBox->value());
 }
 
 void MainWindow::on_bYPlus_clicked()
 {
-    move(1, 200, 0);
+    move(1, ui->spinBox->value(), 0);
 }
 
 void MainWindow::on_bZMinus_clicked()
@@ -1124,7 +1136,8 @@ static QString num2svg(qint64 num)
 }
 
 // Load svg lines to x1,y1,x2,y2 arrays and return count
-static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2, QStringList & lines, int maxCount, qint64 & minX, qint64 & maxX)
+static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2, QStringList & lines, int maxCount,
+                   qint64 & minX, qint64 & maxX, qint64 & minY, qint64 & maxY)
 {
     qDebug() << "loading " << path;
 
@@ -1197,6 +1210,17 @@ static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y
             y1[count] = y;
             x2[count] = x + w;
             y2[count] = y + h;
+
+            minX = (x1[count] < minX ? x1[count] : minX);
+            maxX = (x1[count] > maxX ? x1[count] : maxX);
+            minX = (x2[count] < minX ? x2[count] : minX);
+            maxX = (x2[count] > maxX ? x2[count] : maxX);
+
+            minY = (y1[count] < minY ? y1[count] : minY);
+            maxY = (y1[count] > maxY ? y1[count] : maxY);
+            minY = (y2[count] < minY ? y2[count] : minY);
+            maxY = (y2[count] > maxY ? y2[count] : maxY);
+
             count++;
             lines.append(line);
 
@@ -1216,16 +1240,13 @@ static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y
             x += w;
             y += h;
 
-            minX = (x < minX ? x : minX);
-            maxX = (x > maxX ? x : maxX);
-
             line.remove(0, pos + capwh.length());
             qDebug() << "rem=" << line;
         }
     }
 
     f.close();
-    qDebug() << "MIN X=" << minX << " MAX X=" << maxX;
+    qDebug() << "MIN X=" << minX << " MAX X=" << maxX << " MIN Y=" << minY << " MAX Y=" << maxY;
 
     return count;
 }
@@ -1377,6 +1398,8 @@ void MainWindow::on_bMill_clicked()
 
     qint64 minX = 0x7fffffffffffffff;
     qint64 maxX = 0;
+    qint64 minY = 0x7fffffffffffffff;
+    qint64 maxY = 0;
 
     // PCB
     QStringList pcbLines;
@@ -1386,7 +1409,7 @@ void MainWindow::on_bMill_clicked()
     static qint64 pcbY2[65535];
     static int pcbColors[65535];
 
-    int pcbCount = loadSvg("/home/radek/alfi/gui/pcb_milling.svg", pcbX1, pcbY1, pcbX2, pcbY2, pcbLines, 65535, minX, maxX);
+    int pcbCount = loadSvg("/home/radek/alfi/gui/pcb_milling.svg", pcbX1, pcbY1, pcbX2, pcbY2, pcbLines, 65535, minX, maxX, minY, maxY);
 
     // Outer shape
     QStringList shapeLines;
@@ -1396,7 +1419,7 @@ void MainWindow::on_bMill_clicked()
     static qint64 shapeY2[65535];
     static int shapeColors[65535];
 
-    int shapeCount = loadSvg("/home/radek/alfi/gui/shape_milling.svg", shapeX1, shapeY1, shapeX2, shapeY2, shapeLines, 65535, minX, maxX);
+    int shapeCount = loadSvg("/home/radek/alfi/gui/shape_milling.svg", shapeX1, shapeY1, shapeX2, shapeY2, shapeLines, 65535, minX, maxX, minY, maxY);
 
     // LCD module hole
     QStringList lcmLines;
@@ -1406,7 +1429,7 @@ void MainWindow::on_bMill_clicked()
     static qint64 lcmY2[65535];
     static int lcmColors[65535];
 
-    int lcmCount = loadSvg("/home/radek/alfi/gui/lcm_milling.svg", lcmX1, lcmY1, lcmX2, lcmY2, lcmLines, 65535, minX, maxX);
+    int lcmCount = loadSvg("/home/radek/alfi/gui/lcm_milling.svg", lcmX1, lcmY1, lcmX2, lcmY2, lcmLines, 65535, minX, maxX, minY, maxY);
 
     // Front display hole (a bit smaller then LCM)
     QStringList lcdLines;
@@ -1416,7 +1439,7 @@ void MainWindow::on_bMill_clicked()
     static qint64 lcdY2[65535];
     static int lcdColors[65535];
 
-    int lcdCount = loadSvg("/home/radek/alfi/gui/lcd_milling.svg", lcdX1, lcdY1, lcdX2, lcdY2, lcdLines, 65535, minX, maxX);
+    int lcdCount = loadSvg("/home/radek/alfi/gui/lcd_milling.svg", lcdX1, lcdY1, lcdX2, lcdY2, lcdLines, 65535, minX, maxX, minY, maxY);
 
     mirror(pcbX1, pcbX2, pcbCount, minX, maxX);
     mirror(shapeX1, shapeX2, shapeCount, minX, maxX);
@@ -1484,8 +1507,10 @@ void MainWindow::on_bMillPath_clicked()
 
     qint64 minX = 0x7fffffffffffffff;
     qint64 maxX = 0;
+    qint64 minY = 0x7fffffffffffffff;
+    qint64 maxY = 0;
 
-    int count = loadSvg("/home/radek/alfi/gui/lcm.svg", x1, y1, x2, y2, lines, 65535, minX, maxX);
+    int count = loadSvg("/home/radek/alfi/gui/lcm.svg", x1, y1, x2, y2, lines, 65535, minX, maxX, minY, maxY);
 
     openOutFile("/home/radek/alfi/gui/lcm_milling.svg");
 
