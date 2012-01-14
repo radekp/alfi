@@ -610,7 +610,12 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
 
 void MainWindow::flushQueue()
 {
-    return;
+    update();
+    QApplication::processEvents();
+
+//    cmdQueue.clear();
+//    return;
+
     QString cmd = "q";
     for(int i = 0; i < cmdQueue.count(); i++)
     {
@@ -1079,15 +1084,16 @@ void MainWindow::on_bZPlus_clicked()
 
 // Move plotter using svg coordinates
 //
+// pcbWidth = 331827 svg pixes = 94.285mm
 // 5000 steps = 43.6 mm
-// x steps    = 95.3 mm
-// x = 10,928.8990826 steps
-// 1 step = 51.9126396641 svg points
-// steps = svg coord / 51.9126396641
-void MainWindow::moveBySvgCoord(int axis, int pos, int target, int driftX, bool justSetpos)
+// 10812.5 steps = 94.285mm
+//
+// 331827 svg pixels = 10812.5 steps
+// 1step = 30.6892023121
+void MainWindow::moveBySvgCoord(int axis, qint64 pos, qint64 target, int driftX, bool justSetpos)
 {
-    int stepsPos = (pos * 1000) / 51912;
-    int stepsTarget = (target * 1000) / 51912;
+    int stepsPos = (pos * 1000) / 30897;
+    int stepsTarget = (target * 1000) / 30897;
 
     if(axis == 0)
     {
@@ -1301,10 +1307,10 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
         if(cx != lastX || cy != lastY)      // if lines on are not continuous
         {
             drawLine(prnBits,
-                     lastX / 1000,
-                     lastY / 1000 - 500,
-                     cx / 1000,
-                     cy / 1000 - 500,
+                     lastX / 1000 + 200,
+                     lastY / 1000 - 700,
+                     cx / 1000 + 200,
+                     cy / 1000 - 700,
                      color);
 
             moveBySvgCoord(0, lastX, cx, driftX, true);
@@ -1312,10 +1318,10 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
         }
 
         drawLine(prnBits,
-                 cx / 1000,
-                 cy / 1000 - 500,
-                 tx / 1000,
-                 ty / 1000 - 500,
+                 cx / 1000 + 200,
+                 cy / 1000 - 700,
+                 tx / 1000 + 200,
+                 ty / 1000 - 700,
                  color);
 
         moveBySvgCoord(0, cx, tx, driftX, true);
@@ -1324,9 +1330,9 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
         lastX = tx;
         lastY = ty;
 
-        update();
-        QApplication::processEvents();
-    //    Sleeper::msleep(10);
+//        update();
+//        QApplication::processEvents();
+//        Sleeper::msleep(10);
     }
 }
 
