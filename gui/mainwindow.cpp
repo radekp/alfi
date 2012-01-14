@@ -1289,7 +1289,7 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
             ty = swap ? y1[nindex] : y2[nindex];
             colors[nindex] = color;
 
-            qDebug() << "next line is " << lines.at(nindex);
+            //qDebug() << "next line is " << lines.at(nindex);
         }
         else
         {
@@ -1336,7 +1336,7 @@ int currZ = 0;
 void MainWindow::moveZ(int z, int &driftX)
 {
     currZ += z;
-    qDebug() << "Z=" << z;
+    qDebug() << "======================= Z=" << currZ;
 
     sendCmd("s8000 d4000");
     while(z > 0)
