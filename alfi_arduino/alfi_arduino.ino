@@ -48,7 +48,10 @@ char buf[9];
 int bufPos;
 int limit;                      // last value of limit switch
 
-int delayAndCheckLimit(int delayUs, int inputNo, int pos, int target)
+int lastAxis;
+int lastAxis2;
+
+int delayAndCheckLimit(int delayUs, int inputNo, int axis, int pos, int target)
 {
     int oldLimit = limit;
     delayMicroseconds(delayUs);
@@ -66,13 +69,23 @@ int delayAndCheckLimit(int delayUs, int inputNo, int pos, int target)
             cmdIndex = cmdCount = -1;
         }
     }
-    if (abs(target - pos) < ((sdelay - tdelay) / delayStep)) {
-        if (delayUs < sdelay) {
-            return delayUs + delayStep; // closing to target, slow down
-        }
-    } else if (delayUs > tdelay) {
-        return delayUs - delayStep; // otherwise accelerate
+    if (axis != 0 && lastAxis != 0) {
+        delayX = sdelay;
+        xOff();
     }
+    if (axis != 1 && lastAxis != 1) {
+        delayY = sdelay;
+        yOff();
+    }
+    if (axis != 2 && lastAxis != 2) {
+        delayZ = sdelay;
+        zOff();
+    }
+    if ((lastAxis == axis || lastAxis2 == axis) && delayUs > tdelay) {
+        delayUs -= delayStep;    // accelerate if two of last 3 moves are on the same axis
+    }
+    lastAxis2 = lastAxis;
+    lastAxis = axis;
     return delayUs;
 }
 
@@ -144,11 +157,7 @@ void moveX()
         digitalWrite(3, HIGH);
         break;                  // 53
     }
-    delayX = delayAndCheckLimit(delayX, A2, cx, tx);
-    if (delayY > sdelay) {
-        delayY += delayStep;
-    }
-    delayZ = sdelay;
+    delayX = delayAndCheckLimit(delayX, A2, 0, cx, tx);
 }
 
 // One step to y
@@ -195,11 +204,7 @@ void moveY()
         digitalWrite(8, HIGH);
         break;                  // 68
     }
-    delayY = delayAndCheckLimit(delayY, A0, cy, ty);
-    if (delayX > sdelay) {
-        delayX += delayStep;
-    }
-    delayZ = sdelay;
+    delayY = delayAndCheckLimit(delayY, A0, 1, cy, ty);
 }
 
 // One step to z
@@ -246,8 +251,7 @@ void moveZ()
         digitalWrite(13, HIGH);
         break;                  // 11 13
     }
-    delayZ = delayAndCheckLimit(delayZ, A1, cz, tz);
-    delayX = delayY = sdelay;
+    delayZ = delayAndCheckLimit(delayZ, A1, 2, cz, tz);
 }
 
 // draw line using Bresenham's line algorithm
@@ -274,12 +278,10 @@ void drawLine(int x0, int y0, int x1, int y1)
         if (cx != x0) {
             cx = x0;
             moveX();
-            xOff();
         }
         if (cy != y0) {
             cy = y0;
             moveY();
-            yOff();
         }
 
         if (x0 == x1 && y0 == y1) {
@@ -330,9 +332,11 @@ void setup()
     bufPos = -1;
     axis = 0;
     cx = cy = cz = tx = ty = tz = 0;
-    sdelay = 4000;
-    tdelay = 3000;
+    sdelay = 3600;
+    tdelay = 2400;
     delayStep = 50;
+    delayX = delayY = delayZ = sdelay;
+    lastAxis = lastAxis2 = -1;
 
     Serial.println("arduino init ok");
 }
@@ -357,11 +361,14 @@ void loop()
 //            Serial.print(arg);
             return;
         }
-        // if not moving, stop current on all motor wirings
+        // if not moving, stop current on all motor wirings and reset delays
         if (cmd == 0) {
             xOff();
             yOff();
             zOff();
+     
+            delayX = delayY = delayZ = sdelay;
+            lastAxis = lastAxis2 = -1;
         }
         // check if data has been sent from the computer:
         if (!Serial.available()) {
@@ -414,8 +421,6 @@ void loop()
     }
     // motion handling
     if (cmd == 'M') {
-        delayX = delayY = delayZ = sdelay;
-
         if (cx != tx || cy != ty) {
             drawLine(cx, cy, tx, ty);
         }
