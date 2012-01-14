@@ -14,7 +14,7 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.47 r22583"
-   sodipodi:docname="all.svg">
+   sodipodi:docname="shape_milling.svg">
   <metadata
      id="metadata2966">
     <rdf:RDF>
@@ -274,9 +274,9 @@
      inkscape:window-height="854"
      id="namedview2962"
      showgrid="false"
-     inkscape:zoom="2.6800411"
-     inkscape:cx="168.24193"
-     inkscape:cy="169.98104"
+     inkscape:zoom="1.6700907"
+     inkscape:cx="207.83267"
+     inkscape:cy="103.70443"
      inkscape:window-x="-1"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -286,6 +286,11 @@
   <g
      transform="translate(3.5620117e-8,4.7528074e-6)"
      id="g3192">
+    <path
+       sodipodi:nodetypes="cc"
+       id="path804175"
+       style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
+       d="m 2.8245243,807.50361 0,23.86047" />
     <path
        id="path94966-2"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
@@ -614,11 +619,6 @@
        id="path1344726"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
        d="m 333.63175,825.04729 0,-5.3204" />
-    <path
-       sodipodi:nodetypes="cc"
-       id="path804175"
-       style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 2.8245243,807.50361 0,23.86047" />
     <path
        sodipodi:nodetypes="cc"
        id="path1499487"

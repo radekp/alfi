@@ -14,7 +14,7 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.47 r22583"
-   sodipodi:docname="shape_milling.svg">
+   sodipodi:docname="all.svg">
   <metadata
      id="metadata2966">
     <rdf:RDF>
@@ -253,6 +253,13 @@
        inkscape:vp_y="0 : 1000 : 0"
        inkscape:vp_x="0 : 0.5 : 1"
        sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective3314"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
   </defs>
   <sodipodi:namedview
      pagecolor="#ffffff"
@@ -267,9 +274,9 @@
      inkscape:window-height="854"
      id="namedview2962"
      showgrid="false"
-     inkscape:zoom="1.1136402"
-     inkscape:cx="59.569871"
-     inkscape:cy="156.52456"
+     inkscape:zoom="1.6700907"
+     inkscape:cx="207.83267"
+     inkscape:cy="103.70443"
      inkscape:window-x="-1"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
