@@ -275,8 +275,8 @@
      id="namedview2962"
      showgrid="false"
      inkscape:zoom="1.8780207"
-     inkscape:cx="64.542623"
-     inkscape:cy="178.09769"
+     inkscape:cx="64.138744"
+     inkscape:cy="169.92327"
      inkscape:window-x="-1"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -290,7 +290,7 @@
        sodipodi:nodetypes="cc"
        id="path788432-6"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 60.23622,806.05273 0,155.37756" />
+       d="m 60.236,806.05318 2.2e-4,155.37711" />
     <path
        sodipodi:nodetypes="cc"
        id="path1113458-8"
@@ -300,7 +300,7 @@
        sodipodi:nodetypes="cc"
        id="path35-3"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 60.23622,806.05273 215.07874,0" />
+       d="m 60.236,806.05318 215.07896,-4.5e-4" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909-1"

@@ -14,7 +14,7 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.47 r22583"
-   sodipodi:docname="all.svg">
+   sodipodi:docname="lcm_milling.svg">
   <metadata
      id="metadata2966">
     <rdf:RDF>
@@ -23,7 +23,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -275,8 +275,8 @@
      id="namedview2962"
      showgrid="false"
      inkscape:zoom="1.8780207"
-     inkscape:cx="64.542623"
-     inkscape:cy="178.09769"
+     inkscape:cx="64.138744"
+     inkscape:cy="169.92327"
      inkscape:window-x="-1"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -290,17 +290,17 @@
        sodipodi:nodetypes="cc"
        id="path788432"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 33.328142,796.4858 0,173.89843" />
+       d="m 33.328,795.42318 0,174.96105" />
     <path
        sodipodi:nodetypes="cc"
        id="path35"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 34.391142,795.42281 250.674998,0" />
+       d="m 36.391,795.42318 248.67514,0" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909-4-7"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 31.525322,793.62959 1.93731,1.89145" />
+       d="M 31.525322,793.62959 33.328,795.42318" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909"
