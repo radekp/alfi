@@ -19,26 +19,26 @@
 
 #define MAX_CMDS 128
 
-int cx;
-int tx;
-int cy;
-int ty;
-int cz;
-int tz;
+long cx;
+long tx;
+long cy;
+long ty;
+long cz;
+long tz;
 
 int axis;                       // selected axis number
 int sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
 int tdelay;                     // target deleay between steps (smaller number is higher speed)
 int delayStep;                  // with this step is delay increased/decreased
-int delayX;                     // current delay on x
-int delayY;                     // current delay on y
-int delayZ;                     // current delay on z
+long delayX;                     // current delay on x
+long delayY;                     // current delay on y
+long delayZ;                     // current delay on z
 
 char cmd;                       // current command (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion, q=queue start, e=execute queue)
-int arg;                        // argument for current commands
+long arg;                        // argument for current commands
 
 char cmds[MAX_CMDS];            // queued commands
-int args[MAX_CMDS];             // arguments for queued commands
+long args[MAX_CMDS];             // arguments for queued commands
 int cmdIndex;
 int cmdCount;
 int queueId;
@@ -51,7 +51,7 @@ int limit;                      // last value of limit switch
 int lastAxis;
 int lastAxis2;
 
-int delayAndCheckLimit(int delayUs, int inputNo, int axis, int pos, int target)
+int delayAndCheckLimit(int delayUs, int inputNo, int axis, long pos, long target)
 {
     int oldLimit = limit;
     delayMicroseconds(delayUs);
@@ -116,7 +116,7 @@ void zOff()
 // One step to x
 void moveX()
 {
-    int r = cx % 8;
+    long r = cx % 8;
 
     // 3 2 4 5
     switch (r) {
@@ -163,7 +163,7 @@ void moveX()
 // One step to y
 void moveY()
 {
-    int r = cy % 8;
+    long r = cy % 8;
 
     // 8 7 9 6
     switch (r) {
@@ -210,7 +210,7 @@ void moveY()
 // One step to z
 void moveZ()
 {
-    int r = cz % 8;
+    long r = cz % 8;
 
     // 13 12 10 11
     switch (r) {
@@ -255,11 +255,11 @@ void moveZ()
 }
 
 // draw line using Bresenham's line algorithm
-void drawLine(int x0, int y0, int x1, int y1)
+void drawLine(long x0, long y0, long x1, long y1)
 {
-    int dx = abs(x1 - x0);
-    int dy = abs(y1 - y0);
-    int sx, sy;
+    long dx = abs(x1 - x0);
+    long dy = abs(y1 - y0);
+    long sx, sy;
     if (x0 < x1) {
         sx = 1;
     } else {
@@ -270,8 +270,8 @@ void drawLine(int x0, int y0, int x1, int y1)
     } else {
         sy = -1;
     }
-    int err = dx - dy;
-    int e2;
+    long err = dx - dy;
+    long e2;
 
     for (;;) {
         // move to x0,y0
@@ -392,7 +392,7 @@ void loop()
             return;
         }
         buf[bufPos] = '\0';
-        arg = atoi(buf);
+        arg = atol(buf);
         bufPos = -1;
 
 //        Serial.print("command ");
