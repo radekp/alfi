@@ -18,6 +18,8 @@
 
 #include "qserialport.h"
 
+#define MILL_LOG_LEN 90000
+
 namespace Ui
 {
     class MainWindow;
@@ -57,6 +59,9 @@ public:
     int moveNo;
     QStringList cmdQueue;
     bool milling;
+    int moves[MILL_LOG_LEN];
+    int movesCount;
+    int curZ;
 
     void handleArrowClick(Direction);
     void loadImg();

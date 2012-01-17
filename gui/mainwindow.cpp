@@ -90,7 +90,8 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 115200), moveNo(0), cmdQueue(), milling(false)
+    : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 115200), moveNo(0), cmdQueue(), milling(false),
+    movesCount(0)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -247,8 +248,7 @@ static void millingPath(qint64 ax, qint64 ay,
 void MainWindow::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
-
-    p.drawImage(0, 100, prn);
+    p.drawImage(0, 0, prn);
     return;
 
     if(img.isNull())
@@ -608,13 +608,79 @@ bool findTopLeft(QImage & img, uchar *bits, int *x, int *y)
     return false;
 }
 
+static void drawMoves(uchar* bits, int *moves, int movesCount, int width, int height, int color)
+{
+    memset(bits, 0, PRN_WIDTH * PRN_HEIGHT);
+
+    int minX = 0;
+    int minY = 0;
+    int maxX = 0;
+    int maxY = 0;
+    int curX = 0;
+    int curY = 0;
+
+    for(int i = 0; i < movesCount; i += 3)
+    {
+        int axis = moves[i];
+        int pos = moves[i+1];
+        int target = moves[i+2];
+
+        if(axis == 0)
+        {
+            curX += target - pos;
+            minX = (curX < minX ? curX : minX);
+            maxX = (curX > maxX ? curX : maxX);
+        }
+        if(axis == 1)
+        {
+            curY += target - pos;
+            minY = (curY < minY ? curY : minY);
+            maxY = (curY > maxY ? curY : maxY);
+        }
+    }
+
+    int cx = (1000 * (width - 100)) / (maxX - minX + 1);
+    int cy = (1000 * (height - 150)) / (maxY - minY + 1);
+
+    cx = cy = (cx < cy ? cx : cy);
+
+    curX = curY = 0;
+    int prevX = 0;
+    int prevY = 0;
+    for(int i = 0; i < movesCount; i += 3)
+    {
+        int axis = moves[i];
+        int pos = moves[i+1];
+        int target = moves[i+2];
+
+        prevX = curX;
+        prevY = curY;
+        if(axis == 0)
+        {
+            curX += target - pos;
+        }
+        if(axis == 1)
+        {
+            curY += target - pos;
+        }
+
+        int x1 = 50 +  (cx * (prevX - minX)) / 1000;
+        int y1 = 100 + (cy * (prevY - minY)) / 1000;
+        int x2 = 50 +  (cx * (curX  - minX)) / 1000;
+        int y2 = 100 + (cy * (curY  - minY)) / 1000;
+        drawLine(bits, x1, y1, x2, y2, color % 31);
+    }
+}
+
 void MainWindow::flushQueue()
 {
     update();
     QApplication::processEvents();
 
-//    cmdQueue.clear();
-//    return;
+    drawMoves(prnBits, moves, movesCount, width(), height(), curZ);
+
+    //cmdQueue.clear();
+    //return;
 
     QString cmd = "q";
     for(int i = 0; i < cmdQueue.count(); i++)
@@ -709,16 +775,24 @@ void MainWindow::sendCmd(QString cmd, bool flush)
 
 void MainWindow::move(int axis, int pos, int target, bool justSetPos, bool flush)
 {
-    int delta = target - pos;
-    if(delta > 0)
+//    int delta = target - pos;
+//    if(delta > 0)
+//    {
+//        pos = 0;
+//        target = delta;
+//    }
+//    else
+//    {
+//        target = 0;
+//        pos = -delta;
+//    }
+
+    moves[movesCount++] = axis;
+    moves[movesCount++] = pos;
+    moves[movesCount++] = target;
+    if(movesCount >= MILL_LOG_LEN)
     {
-        pos = 0;
-        target = delta;
-    }
-    else
-    {
-        target = 0;
-        pos = -delta;
+        movesCount = 0;
     }
 
     QString cmd = "a" + QString::number(axis) +
@@ -1251,13 +1325,25 @@ static int loadSvg(QString path, qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y
     return count;
 }
 
-static void mirror(qint64 * x1, qint64 * x2, int count, qint64 minX, qint64 maxX)
+static void mirror(qint64 * x1, qint64 * y1, qint64 * x2, qint64 * y2 , int count, qint64 minX, qint64 maxX, qint64 minY, qint64 maxY)
 {
-    qint64 midX = (minX + maxX) / 2;
+    qint64 midX = (minX + maxX) / 2 - minX;
     for(int i = 0; i < count; i++)
     {
         x1[i] = midX - x1[i] + midX;
         x2[i] = midX - x2[i] + midX;
+
+        // Make sure we have only positive coordinates
+        x1[i] -= minX;
+        x2[i] -= minX;
+        y1[i] -= minY;
+        y2[i] -= minY;
+
+        if(x1[i] < 0 || x2[i] < 0 || y1[i] < 0 << y2[i] < 0)
+        {
+            qDebug() << "negative coordinate";
+            exit(123);
+        }
     }
 }
 
@@ -1320,6 +1406,10 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
         }
         else
         {
+//            update();
+//            QApplication::processEvents();
+//            Sleeper::msleep(5000);
+
             // all done
             flushQueue();
             return;
@@ -1327,57 +1417,51 @@ void MainWindow::millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
 
         if(cx != lastX || cy != lastY)      // if lines on are not continuous
         {
-            drawLine(prnBits,
-                     lastX / 1000 + 200,
-                     lastY / 1000 - 700,
-                     cx / 1000 + 200,
-                     cy / 1000 - 700,
-                     color);
+//            drawLine(prnBits,
+//                     lastX / 1000 + 200,
+//                     lastY / 1000 - 700,
+//                     cx / 1000 + 200,
+//                     cy / 1000 - 700,
+//                     color);
 
             moveBySvgCoord(0, lastX, cx, driftX, true);
             moveBySvgCoord(1, lastY, cy, driftX, false);
         }
 
-        drawLine(prnBits,
-                 cx / 1000 + 200,
-                 cy / 1000 - 700,
-                 tx / 1000 + 200,
-                 ty / 1000 - 700,
-                 color);
+//        drawLine(prnBits,
+//                 cx / 1000 + 200,
+//                 cy / 1000 - 700,
+//                 tx / 1000 + 200,
+//                 ty / 1000 - 700,
+//                 color);
 
         moveBySvgCoord(0, cx, tx, driftX, true);
         moveBySvgCoord(1, cy, ty, driftX, false);
 
         lastX = tx;
         lastY = ty;
-
-//        update();
-//        QApplication::processEvents();
-//        Sleeper::msleep(10);
     }
 }
-
-int currZ = 0;
 
 // Move z axis in 0.5 mm steps
 void MainWindow::moveZ(int z, int &driftX)
 {
-    currZ += z;
-    qDebug() << "======================= Z=" << currZ;
+    curZ += z;
+    qDebug() << "======================= Z=" << curZ;
 
     sendCmd("s8000 d4000");
     while(z > 0)
     {
-        move(2, 0, 907 / 2, false, true);           // drill the shape shifted 1mm down
-        move(0, 0, 63 / 2, false, true);            // compensate x drift
-        driftX += 63 / 2;
+        move(2, 0, 454, false, true);           // drill the shape shifted 0.5mm down
+        move(0, 0, 32, false, true);            // compensate x drift
+        driftX += 32;
         z--;
     }
     while(z < 0)
     {
-        move(0, 63 / 2, 0, false, true);            // compensate x drift
-        move(2, 907 / 2, 0, false, true);           // drill the shape shifted 1mm down
-        driftX -= 63 / 2;
+        move(0, 32, 0, false, true);            // compensate x drift
+        move(2, 452, 0, false, true);           // drill the shape shifted 0.5mm down
+        driftX -= 32;
         z++;
     }
     sendCmd("s3600 d2400");
@@ -1441,10 +1525,10 @@ void MainWindow::on_bMill_clicked()
 
     int lcdCount = loadSvg("/home/radek/alfi/gui/lcd_milling.svg", lcdX1, lcdY1, lcdX2, lcdY2, lcdLines, 65535, minX, maxX, minY, maxY);
 
-    mirror(pcbX1, pcbX2, pcbCount, minX, maxX);
-    mirror(shapeX1, shapeX2, shapeCount, minX, maxX);
-    mirror(lcmX1, lcmX2, lcmCount, minX, maxX);
-    mirror(lcdX1, lcdX2, lcdCount, minX, maxX);
+    mirror(pcbX1, pcbY1, pcbX2, pcbY2, pcbCount, minX, maxX, minY, maxY);
+    mirror(shapeX1, shapeY1, shapeX2, shapeY2, shapeCount, minX, maxX, minY, maxY);
+    mirror(lcmX1, lcmY1, lcmX2, lcmY2, lcmCount, minX, maxX, minY, maxY);
+    mirror(lcdX1, lcdY1, lcdX2, lcdY2, lcdCount, minX, maxX, minY, maxY);
 
     int driftX = 0;
     qint64 lastX = shapeX1[0];
