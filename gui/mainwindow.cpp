@@ -91,7 +91,7 @@ static void MkPrnImg(QImage &img, int width, int height, uchar **imgBits)
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/ttyACM0", 115200), moveNo(0), cmdQueue(), milling(false),
-    movesCount(0)
+    movesCount(0), curZ(0)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -1142,14 +1142,18 @@ void MainWindow::on_bYPlus_clicked()
 
 void MainWindow::on_bZMinus_clicked()
 {
-    move(0, 63, 0);
-    move(2, 907, 0);
+    move(0, 24, 0);
+    move(2, 437, 0);
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
-    move(2, 0, 907);
-    move(0, 0, 63);
+    move(2, 0, 437);
+
+    move(2, 437, 437 - 128);        // move up & down so that the gear does not slip ;-)
+    move(2, 437 - 128, 437);
+
+    move(0, 0, 24);
 }
 
 //static bool findNext(QImage & img, uchar *bits, int *x, int *y, int oldX, int oldY, int nx, int ny)
@@ -1452,16 +1456,20 @@ void MainWindow::moveZ(int z, int &driftX)
     sendCmd("s8000 d4000");
     while(z > 0)
     {
-        move(2, 0, 454, false, true);           // drill the shape shifted 0.5mm down
-        move(0, 0, 32, false, true);            // compensate x drift
-        driftX += 32;
+        move(2, 0, 437, false, true);           // drill the shape shifted 0.5mm down
+        move(0, 0, 24, false, true);            // compensate x drift
+
+        move(2, 437, 437 - 128);                // move up & down so that the gear does not slip ;-)
+        move(2, 437 - 128, 437);
+
+        driftX += 24;
         z--;
     }
     while(z < 0)
     {
-        move(0, 32, 0, false, true);            // compensate x drift
-        move(2, 452, 0, false, true);           // drill the shape shifted 0.5mm down
-        driftX -= 32;
+        move(0, 24, 0, false, true);            // compensate x drift
+        move(2, 437, 0, false, true);           // drill the shape shifted 0.5mm down
+        driftX -= 24;
         z++;
     }
     sendCmd("s3600 d2400");
