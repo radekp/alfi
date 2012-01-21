@@ -14,7 +14,7 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.47 r22583"
-   sodipodi:docname="lcm_milling.svg">
+   sodipodi:docname="all.svg">
   <metadata
      id="metadata2966">
     <rdf:RDF>
@@ -23,7 +23,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -274,9 +274,9 @@
      inkscape:window-height="854"
      id="namedview2962"
      showgrid="false"
-     inkscape:zoom="1.8780207"
-     inkscape:cx="64.138744"
-     inkscape:cy="169.92327"
+     inkscape:zoom="2.3281699"
+     inkscape:cx="166.1543"
+     inkscape:cy="168.61987"
      inkscape:window-x="-1"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -284,47 +284,46 @@
      showguides="true"
      inkscape:guide-bbox="true" />
   <g
-     transform="translate(1.3562012e-7,4.7528076e-6)"
-     id="g3051">
+     id="g3054">
     <path
        sodipodi:nodetypes="cc"
        id="path788432"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 33.328,795.42318 0,174.96105" />
+       d="m 32.827642,795.42318 0,174.96105" />
     <path
        sodipodi:nodetypes="cc"
        id="path35"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 36.391,795.42318 248.67514,0" />
+       d="m 36.391,794.92354 248.67514,0" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909-4-7"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="M 31.525322,793.62959 33.328,795.42318" />
+       d="m 31.025642,793.12995 1.802678,1.79359" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 285.94488,796.42203 0,173.89842" />
+       d="m 286.44464,796.42203 0,173.89842" />
     <path
        sodipodi:nodetypes="cc"
        id="path1113458"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 34.745472,972.06021 249.966338,0" />
+       d="m 34.745472,972.56054 249.966338,0" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909-4"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 287.83001,793.78903 -1.88513,1.63378" />
+       d="m 288.32977,793.28876 -1.88513,1.63378" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909-4-6"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 285.94488,972.06021 2.03973,1.47917" />
+       d="m 286.44464,972.56037 2.03973,1.47917" />
     <path
        sodipodi:nodetypes="cc"
        id="path1184909-4-5"
        style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.29528427;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none"
-       d="m 33.328142,972.06021 -1.38411,1.62507" />
+       d="m 33.328142,972.56047 -1.38411,1.62507" />
   </g>
 </svg>
