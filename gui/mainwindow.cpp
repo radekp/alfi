@@ -1567,17 +1567,17 @@ void MainWindow::on_bMill_clicked()
         moveZ(1, driftX);
     }
 
-    // Move to outer shape -0.5 above
-    moveZ(-25, driftX);
+    // Move to outer shape -1.5 above
+    moveZ(-27, driftX);
 
     // Outer shape 5+4+3+3mm down
-    for(int i = 1; i <= 31; i++)
+    for(int i = 1; i <= 33; i++)
     {
         millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);   // -0.5..15mm
         moveZ(1, driftX);
     }
 
-    moveZ(-31, driftX);
+    moveZ(-33, driftX);
 }
 
 // Compute milling path taking into account driller radius
