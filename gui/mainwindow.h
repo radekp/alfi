@@ -47,13 +47,10 @@ protected:
 
 public:
     Ui::MainWindow *ui;
-    int lpFlags;
     QImage img;
     QImage prn;
     uchar *prnBits;
     QString imgFile;
-    int penX;
-    int penY;
     QSerialPort port;
     QString serialLog;
     int moveNo;
@@ -63,17 +60,6 @@ public:
     int movesCount;
     int curZ;
 
-    void handleArrowClick(Direction);
-    void loadImg();
-    void nextImg();
-    void oneUp();
-    void oneDown();
-    void oneLeft();
-    void oneRight();
-    void up(int times);
-    void down(int times);
-    void left(int times);
-    void right(int times);
     void sendCmd(QString cmd, bool flush = true);
     void flushQueue();
     void move(int axis, int pos, int target, bool justSetPos = false, bool flush = true);
@@ -86,6 +72,7 @@ public:
     void moveZ(int z, int & driftX);
 
 private slots:
+    void on_bMillCover_clicked();
     void on_bMillPath_clicked();
     void on_bMill_clicked();
     void on_bZPlus_clicked();
@@ -95,10 +82,6 @@ private slots:
     void on_bXPlus_clicked();
     void on_bXMinus_clicked();
     void on_bSendSerial_clicked();
-    void on_bPrintDraw_clicked();
-    void on_bPrintDotted_clicked();
-    void on_bImg_clicked();
-    void on_bNiceDraw_clicked();
     void readSerial();
 };
 
