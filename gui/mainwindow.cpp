@@ -893,5 +893,74 @@ void MainWindow::on_bMillPath_clicked()
 
 void MainWindow::on_bMillCover_clicked()
 {
+    milling = true;
 
+    qint64 minX = 0x7fffffffffffffff;
+    qint64 maxX = 0;
+    qint64 minY = 0x7fffffffffffffff;
+    qint64 maxY = 0;
+
+    // PCB
+    QStringList pcbLines;
+    static qint64 pcbX1[65535];
+    static qint64 pcbY1[65535];
+    static qint64 pcbX2[65535];
+    static qint64 pcbY2[65535];
+    static int pcbColors[65535];
+
+    int pcbCount =
+        loadSvg("/home/radek/alfi/gui/pcb_milling.svg", pcbX1, pcbY1, pcbX2,
+                pcbY2, pcbLines, 65535, minX, maxX, minY, maxY);
+
+    // Outer shape
+    QStringList shapeLines;
+    static qint64 shapeX1[65535];
+    static qint64 shapeY1[65535];
+    static qint64 shapeX2[65535];
+    static qint64 shapeY2[65535];
+    static int shapeColors[65535];
+
+    int shapeCount =
+        loadSvg("/home/radek/alfi/gui/shape_milling.svg", shapeX1, shapeY1,
+                shapeX2, shapeY2, shapeLines, 65535, minX, maxX, minY, maxY);
+
+    // Battery hole
+    QStringList batteryLines;
+    static qint64 batteryX1[65535];
+    static qint64 batteryY1[65535];
+    static qint64 batteryX2[65535];
+    static qint64 batteryY2[65535];
+    static int batteryColors[65535];
+
+    int batteryCount =
+        loadSvg("/home/radek/alfi/gui/battery_hole_milling.svg", batteryX1, batteryY1, batteryX2,
+                batteryY2, batteryLines, 65535, minX, maxX, minY, maxY);
+
+    mirror(pcbX1, pcbY1, pcbX2, pcbY2, pcbCount, minX, maxX, minY, maxY);
+    mirror(shapeX1, shapeY1, shapeX2, shapeY2, shapeCount, minX, maxX, minY,
+           maxY);
+    mirror(batteryX1, batteryY1, batteryX2, batteryY2, batteryCount, minX, maxX, minY, maxY);
+
+    int driftX = 0;
+    qint64 lastX = shapeX1[0];
+    qint64 lastY = shapeY1[0];
+
+    // Start with outer shape
+    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);    // 0mm
+    moveZ(-1, driftX);
+
+    // Battery hole 6mm down
+    for (int i = 1; i <= 13; i++) {
+        millShape(batteryX1, batteryY2, batteryX2, batteryY2, batteryColors, batteryCount, i, driftX, batteryLines, lastX, lastY);  // -0.5..6mm
+        moveZ(1, driftX);
+    }
+
+    // Move to outer shape -0.5 above
+    moveZ(-14, driftX);
+
+    // Outer shape 10mm down
+    for (int i = 1; i <= 21; i++) {
+        millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);    // -0.5..15mm
+        moveZ(1, driftX);
+    }
 }
