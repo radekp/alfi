@@ -900,18 +900,6 @@ void MainWindow::on_bMillCover_clicked()
     qint64 minY = 0x7fffffffffffffff;
     qint64 maxY = 0;
 
-    // PCB
-    QStringList pcbLines;
-    static qint64 pcbX1[65535];
-    static qint64 pcbY1[65535];
-    static qint64 pcbX2[65535];
-    static qint64 pcbY2[65535];
-    static int pcbColors[65535];
-
-    int pcbCount =
-        loadSvg("/home/radek/alfi/gui/pcb_milling.svg", pcbX1, pcbY1, pcbX2,
-                pcbY2, pcbLines, 65535, minX, maxX, minY, maxY);
-
     // Outer shape
     QStringList shapeLines;
     static qint64 shapeX1[65535];
@@ -921,7 +909,7 @@ void MainWindow::on_bMillCover_clicked()
     static int shapeColors[65535];
 
     int shapeCount =
-        loadSvg("/home/radek/alfi/gui/shape_milling.svg", shapeX1, shapeY1,
+        loadSvg("/home/radek/alfi/gui/cover_shape_milling.svg", shapeX1, shapeY1,
                 shapeX2, shapeY2, shapeLines, 65535, minX, maxX, minY, maxY);
 
     // Battery hole
@@ -936,7 +924,6 @@ void MainWindow::on_bMillCover_clicked()
         loadSvg("/home/radek/alfi/gui/battery_hole_milling.svg", batteryX1, batteryY1, batteryX2,
                 batteryY2, batteryLines, 65535, minX, maxX, minY, maxY);
 
-    mirror(pcbX1, pcbY1, pcbX2, pcbY2, pcbCount, minX, maxX, minY, maxY);
     mirror(shapeX1, shapeY1, shapeX2, shapeY2, shapeCount, minX, maxX, minY,
            maxY);
     mirror(batteryX1, batteryY1, batteryX2, batteryY2, batteryCount, minX, maxX, minY, maxY);
