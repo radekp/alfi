@@ -21,7 +21,7 @@ func draw_point(x int32,y int32,value uint32,screen* sdl.Surface) {
  
 func main() {
  
-  var screen = sdl.SetVideoMode(640, 480, 32, sdl.RESIZABLE)
+  var screen = sdl.SetVideoMode(1440, 900, 32, sdl.RESIZABLE)
  
   if screen == nil {
     log.Fatal(sdl.GetError())
@@ -30,7 +30,7 @@ func main() {
   
   
   var fname string
-  fname = "/usr/share/icons/hicolor/128x128/apps/vlc.png"
+  fname = "case1.png"
     file, err := os.Open(fname)
     if err != nil {
         fmt.Println(err)
@@ -51,7 +51,10 @@ func main() {
             col := pic.At(x, y)
             
             r, g, b, a := col.RGBA()
-                draw_point(int32(x),int32(y),r + g + b + a,screen);
+            //fmt.Fprintf(os.Stderr, "x=%d y=%d r=%d g=%d b=%d\n", x, y, r, g, b)
+            if r + g + b + a > 32768 * 3 {
+                draw_point(int32(x),int32(y), 0xffffffff,screen);
+            }
         }
     }
                     screen.Flip();
