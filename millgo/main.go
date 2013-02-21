@@ -22,54 +22,13 @@ import (
 //         |
 //
 var (
-        ColMaterial     = uint32(0xffffff)
+        ColMaterial     = uint32(0x000000)
         ColModel        = uint32(0x00ff00)
         ColRemoved      = uint32(0xff0000)
         ColExtraRemoved = uint32(0x0000ff)
 )
- 
-func draw_point(x int32,y int32,value uint32,screen* sdl.Surface) {
-  var pix = uintptr(screen.Pixels);
-  pix += (uintptr)((y*screen.W)+x)*unsafe.Sizeof(value);
-  var pu = unsafe.Pointer(pix);
-  var pp *uint32;
-  pp = (*uint32)(pu);
-  *pp = value;
-}
 
-func pixSet(x, y int32, img image.Image) bool {
-    col := img.At(int(x), int(y))
-    r, g, b, a := col.RGBA()
-    return r + g + b + a > 32768 * 3 
-}
-
-// Return true if point x,y is inside of cirlcle with center cz,cy and radius r
-func inRange(x, y, cx, cy, r int32) bool {
-    var dx int32 = cx - x
-    var dy int32 = cy - y
-    return dx * dx + dy * dy <= r * r
-}
-
-func fillModel(surface *sdl.Surface, w, h int32, color uint32) {
-    var x, y int32
-    for x = 0; x < w; x++ {
-        for y = 0; y < h; y++ {
-            draw_point(x, y, color, surface)
-        }
-    }
-}
-
-func initSdl(width, height int32) *sdl.Surface {
-     
-    var surface = sdl.SetVideoMode(int(width), int(height), 32, sdl.RESIZABLE)
- 
-    if surface == nil {
-        panic(sdl.GetError())
-    }
-    return surface
-}
-
-func loadPng(fname string) image.Image {
+func pngLoad(fname string) image.Image {
     fmt.Printf("loading %s\n", fname)
     
     file, err := os.Open(fname)
@@ -85,22 +44,67 @@ func loadPng(fname string) image.Image {
     return pic
 }
 
+func pngIsMaterial(x, y int32, img image.Image) bool {
+    col := img.At(int(x), int(y))
+    r, g, b, a := col.RGBA()
+    return r + g + b + a < 32768 * 3 
+}
+
+func pngIsEmpty(x, y int32, img image.Image) bool {
+    return !pngIsMaterial(x, y, img)
+}
+
+func sdlInit(width, height int32) *sdl.Surface {
+     
+    var surface = sdl.SetVideoMode(int(width), int(height), 32, sdl.RESIZABLE)
+ 
+    if surface == nil {
+        panic(sdl.GetError())
+    }
+    return surface
+}
+
+func sdlFill(surface *sdl.Surface, w, h int32, color uint32) {
+    var x, y int32
+    for x = 0; x < w; x++ {
+        for y = 0; y < h; y++ {
+            sdlSet(x, y, color, surface)
+        }
+    }
+}
+
+func sdlSet(x int32,y int32,value uint32,screen* sdl.Surface) {
+  var pix = uintptr(screen.Pixels);
+  pix += (uintptr)((y*screen.W)+x)*unsafe.Sizeof(value);
+  var pu = unsafe.Pointer(pix);
+  var pp *uint32;
+  pp = (*uint32)(pu);
+  *pp = value;
+}
+
+// Return true if point x,y is inside of cirlcle with center cz,cy and radius r
+func inRange(x, y, cx, cy, r int32) bool {
+    var dx int32 = cx - x
+    var dy int32 = cy - y
+    return dx * dx + dy * dy <= r * r
+}
+
 func main() {
  
-    pic := loadPng("case1.png")
+    pic := pngLoad("case1.png")
 
     b := pic.Bounds()
     var width, height int32 = int32(b.Max.X - b.Min.X), int32(b.Max.Y - b.Min.Y)
     
-    var screen = initSdl(width, height)
+    var screen = sdlInit(width, height)
 
-    fillModel(screen, width, height, ColMaterial)
+    sdlFill(screen, width, height, ColMaterial)
     
     var x, y, xx, yy int32    
     for y = 0; y < height; y++ {
         for x = 0; x < width; x++ {
-            if !pixSet(x, y, pic) {
-                draw_point(x,y, 0xff0000,screen);
+            if pngIsMaterial(x, y, pic) {
+                sdlSet(x,y, 0xff0000,screen);
             }
         }
     }
@@ -112,12 +116,12 @@ func main() {
         screen.Flip();
 
         for x = 0; x < width; x++ {
-            if !pixSet(x, y, pic) {
+            if pngIsMaterial(x, y, pic) {
                 continue
             }
 
             //fmt.Printf("%d, %d\n", x, y) 
-            //draw_point(x,y, 0xff,screen)
+            //sdlSet(x,y, 0xff,screen)
 
             ok := true
             
@@ -136,9 +140,9 @@ func main() {
                         continue
                     }
                     
-                    if !pixSet(xx, yy, pic) {
+                    if pngIsMaterial(xx, yy, pic) {
                         ok = false
-                        //draw_point(xx,yy, 0xff00,screen)      // milling material that should stay
+                        //sdlSet(xx,yy, 0xff00,screen)      // milling material that should stay
                     }
                 }
             }
@@ -156,7 +160,7 @@ func main() {
                             continue
                         }                        
                         if inRange(xx, yy, x, y, r) {
-                            draw_point(xx,yy, 0xffff,screen)
+                            sdlSet(xx,yy, 0xffff,screen)
                         }
                     }
                 }
@@ -176,7 +180,7 @@ func main() {
     var y int32 =rand.Int31()%480;
     var x int32 =rand.Int31()%640;
     var value uint32 = rand.Uint32();
-    draw_point(x,y,value,screen);
+    sdlSet(x,y,value,screen);
  
     screen.Flip();*/
 }
