@@ -26,9 +26,10 @@ var (
         ColModel        = uint32(0x00ff00)
         ColRemoved      = uint32(0xff0000)
         ColExtraRemoved = uint32(0x0000ff)
+        ColVisited      = uint32(0x0000ff)
 )
 
-func pngLoad(fname string) image.Image {
+func pngLoad(fname string) (img image.Image, width, height int32) {
     fmt.Printf("loading %s\n", fname)
     
     file, err := os.Open(fname)
@@ -37,11 +38,16 @@ func pngLoad(fname string) image.Image {
     }
     defer file.Close()
 
-    pic, err := png.Decode(file)
+    img, err = png.Decode(file)
     if err != nil {
         panic(err)
     }
-    return pic
+    
+    b := img.Bounds()
+    width = int32(b.Max.X - b.Min.X)
+    height = int32(b.Max.Y - b.Min.Y)
+    
+    return img, width, height
 }
 
 func pngIsMaterial(x, y int32, img image.Image) bool {
@@ -73,13 +79,36 @@ func sdlFill(surface *sdl.Surface, w, h int32, color uint32) {
     }
 }
 
-func sdlSet(x int32,y int32,value uint32,screen* sdl.Surface) {
-  var pix = uintptr(screen.Pixels);
-  pix += (uintptr)((y*screen.W)+x)*unsafe.Sizeof(value);
+func sdlSet(x int32,y int32,value uint32,ss* sdl.Surface) {
+  var pix = uintptr(ss.Pixels);
+  pix += (uintptr)((y*ss.W)+x)*unsafe.Sizeof(value);
   var pu = unsafe.Pointer(pix);
   var pp *uint32;
   pp = (*uint32)(pu);
-  *pp = value;
+  *pp |= value;
+}
+
+func sdlGet(x int32,y int32,ss* sdl.Surface) uint32 {
+  var pix = uintptr(ss.Pixels);
+  pix += (uintptr)((y*ss.W)+x)*4;
+  var pu = unsafe.Pointer(pix);
+  var pp *uint32;
+  pp = (*uint32)(pu);
+  return *pp;
+}
+
+// Draw model onto SDL surface
+func drawModel(img image.Image, ss* sdl.Surface, w, h int32) {
+     
+    var x, y int32
+    for y = 0; y < h; y++ {
+        for x = 0; x < w; x++ {
+            if pngIsMaterial(x, y, img) {
+                sdlSet(x,y, ColModel,ss);
+            }
+        }
+    }
+    return
 }
 
 // Return true if point x,y is inside of cirlcle with center cz,cy and radius r
@@ -89,39 +118,166 @@ func inRange(x, y, cx, cy, r int32) bool {
     return dx * dx + dy * dy <= r * r
 }
 
-func main() {
- 
-    pic := pngLoad("case1.png")
+// Find a x, y where is material to be removed
+func find2Remove(ss* sdl.Surface, w,h,r int32) (bool, int32, int32) {
+    var x, y int32
+    for x = 0; x < w; x++ {
+        for y = 0; y < h; y++ {
+            val := sdlGet(x, y, ss)
+            //fmt.Printf("x=%d y=%d val=%d\n", x, y, val)
+            if (val & ColModel) != 0 {          // part of model
+                continue;
+            }
+            if (val & ColRemoved) != 0 {        // already visited
+                continue;
+            }
+            
+            // Check if we dont remove part of model in range
+            ok := true
+            for xx := x - r; xx <= x + r && ok; xx++ {
+                
+                if xx < 0 || xx >= w {
+                    continue
+                }                
+            
+                for yy := y - r; yy <= y + r; yy++ {
+                    if yy < 0 || yy >= h {
+                        continue
+                    }
+                    
+                    if !inRange(xx, yy, x, y, r) {
+                        continue
+                    }
 
-    b := pic.Bounds()
-    var width, height int32 = int32(b.Max.X - b.Min.X), int32(b.Max.Y - b.Min.Y)
-    
-    var screen = sdlInit(width, height)
-
-    sdlFill(screen, width, height, ColMaterial)
-    
-    var x, y, xx, yy int32    
-    for y = 0; y < height; y++ {
-        for x = 0; x < width; x++ {
-            if pngIsMaterial(x, y, pic) {
-                sdlSet(x,y, 0xff0000,screen);
+                    val := sdlGet(xx, yy, ss)
+                    ok = ok && ((val & ColModel) == 0)
+                }
+            }
+            if ok {            
+                return true, x, y
             }
         }
     }
-    
+    return false, -1, -1
+}
+
+// Remove material at x,y in radius r. The args w and h are surface dimensions
+func removeMaterial(ss* sdl.Surface, w, h, x, y, r int32) {
+    for xx := x - r; xx <= x + r; xx++ {
+        if xx < 0 || xx >= w {
+            continue
+        }                
+        
+        for yy := y - r; yy <= y + r; yy++ {
+            if yy < 0 || yy >= h {
+                continue
+            }                        
+            if inRange(xx, yy, x, y, r) {
+                sdlSet(xx,yy,ColRemoved,ss)
+            }
+        }
+    }
+    sdlSet(x, y, ColVisited, ss)
+}
+
+// Return volume of material that would be removed at given point. Return -1 if
+// model part would be removed
+func removeCount(ss* sdl.Surface, w, h, x, y, r int32) int32 {
+    var count int32
+    for xx := x - r; xx <= x + r; xx++ {
+        if xx < 0 || xx >= w {
+            continue
+        }                
+        
+        for yy := y - r; yy <= y + r; yy++ {
+            if yy < 0 || yy >= h {
+                continue
+            }                        
+            if !inRange(xx, yy, x, y, r) {
+                continue
+            }
+            val := sdlGet(xx, yy, ss)
+            if (val & ColModel) != 0 {          // part of model
+                return -1
+            }
+            if (val & ColRemoved) != 0 {        // already removed
+                continue;
+            }
+            count++
+        }
+    }
+    return count
+}
+
+// Is count (in given dir) best?
+func bestDir(count, count1, count2, count3 int32) bool {
+    return count > 0 &&
+        count >= count1 &&
+        count >= count2 &&
+        count >= count3;
+}
+
+func main() {
+ 
     var r int32 = 15
+
+    img, w, h := pngLoad("case1.png")  // image
+    ss := sdlInit(w, h)                // sdl surface
+    sdlFill(ss, w, h, ColMaterial)     // we have all material in the begining then we remove the parts so that just model is left
+    drawModel(img, ss, w, h)           // draw the model with green so that we see if we are removing correct parts
+
+    for {
+        ok, x, y := find2Remove(ss, w, h, r)
+        
+        fmt.Printf("find2Remove x=%d y=%d ok=%d\n", x, y, ok)
+        
+        if !ok {
+            break
+        }
+        removeMaterial(ss, w, h, x, y, r)
+        ss.Flip();
+        
+        for {
+            countN := removeCount(ss, w, h, x, y + 1, r);
+            countS := removeCount(ss, w, h, x, y - 1, r);
+            countE := removeCount(ss, w, h, x + 1, y, r);
+            countW := removeCount(ss, w, h, x - 1, y, r);
+            
+            if bestDir(countN, countS, countE, countW) {
+                y++
+            } else if bestDir(countS, countN, countE, countW) {
+                y--
+            } else if bestDir(countE, countN, countS, countW) {
+                x++
+            } else if bestDir(countW, countN, countE, countS) {
+                x--
+            } else {
+                fmt.Printf("no good dir %d %d %d %d\n", countN, countS, countE, countW)
+                break
+            }
+            
+            removeMaterial(ss, w, h, x, y, r)
+            ss.Flip();
+        }
+    }
     
+      for true {
+                    }
+    
+    /*
+    var x, y, xx, yy int32    
+        
     for y = 0; y < height; y++ {
 
-        screen.Flip();
+        ss.Flip();
 
         for x = 0; x < width; x++ {
-            if pngIsMaterial(x, y, pic) {
+            if pngIsMaterial(x, y, img) {
                 continue
             }
 
             //fmt.Printf("%d, %d\n", x, y) 
-            //sdlSet(x,y, 0xff,screen)
+            //sdlSet(x,y, 0xff,ss)
 
             ok := true
             
@@ -140,9 +296,9 @@ func main() {
                         continue
                     }
                     
-                    if pngIsMaterial(xx, yy, pic) {
+                    if pngIsMaterial(xx, yy, img) {
                         ok = false
-                        //sdlSet(xx,yy, 0xff00,screen)      // milling material that should stay
+                        //sdlSet(xx,yy, 0xff00,ss)      // milling material that should stay
                     }
                 }
             }
@@ -160,7 +316,7 @@ func main() {
                             continue
                         }                        
                         if inRange(xx, yy, x, y, r) {
-                            sdlSet(xx,yy, 0xffff,screen)
+                            sdlSet(xx,yy, 0xffff,ss)
                         }
                     }
                 }
@@ -169,18 +325,18 @@ func main() {
     }
                 
          
-        screen.Flip();
+        ss.Flip();
 
                     for true {
                     }
-   
+   */
   /*var n int32;
   for n=0;n<1000000;n++ {
  
     var y int32 =rand.Int31()%480;
     var x int32 =rand.Int31()%640;
     var value uint32 = rand.Uint32();
-    sdlSet(x,y,value,screen);
+    sdlSet(x,y,value,ss);
  
-    screen.Flip();*/
+    ss.Flip();*/
 }
