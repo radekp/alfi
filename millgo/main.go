@@ -3,12 +3,29 @@ package main
 import (
 "github.com/0xe2-0x9a-0x9b/Go-SDL/sdl"
 "os"
-"log"
 "fmt"
 "unsafe"
 //"math/rand"
 "image"
 "image/png"
+)
+
+// Used colors. We start with ColMaterial, then we draw the model using
+// ColModel. We use ColRemoved for removed material. Material which should
+// ideally not be removed but has to be removed because driller radius is
+// marked with ColExtraRemoved (see figure below.)
+//
+//         |          __
+//     +---+         /  \
+//     |       <-   |   |
+//     +---+        \__/
+//         |
+//
+var (
+        ColMaterial     = uint32(0xffffff)
+        ColModel        = uint32(0x00ff00)
+        ColRemoved      = uint32(0xff0000)
+        ColExtraRemoved = uint32(0x0000ff)
 )
  
 func draw_point(x int32,y int32,value uint32,screen* sdl.Surface) {
@@ -33,34 +50,53 @@ func inRange(x, y, cx, cy, r int32) bool {
     return dx * dx + dy * dy <= r * r
 }
 
-func main() {
+func fillModel(surface *sdl.Surface, w, h int32, color uint32) {
+    var x, y int32
+    for x = 0; x < w; x++ {
+        for y = 0; y < h; y++ {
+            draw_point(x, y, color, surface)
+        }
+    }
+}
+
+func initSdl(width, height int32) *sdl.Surface {
+     
+    var surface = sdl.SetVideoMode(int(width), int(height), 32, sdl.RESIZABLE)
  
-  var fname string
-  fname = "case1.png"
+    if surface == nil {
+        panic(sdl.GetError())
+    }
+    return surface
+}
+
+func loadPng(fname string) image.Image {
+    fmt.Printf("loading %s\n", fname)
+    
     file, err := os.Open(fname)
     if err != nil {
-        fmt.Println(err)
-        return
+        panic(err)
     }
     defer file.Close()
 
     pic, err := png.Decode(file)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "%s: %v\n", fname, err)
-        return
+        panic(err)
     }
+    return pic
+}
+
+func main() {
+ 
+    pic := loadPng("case1.png")
 
     b := pic.Bounds()
     var width, height int32 = int32(b.Max.X - b.Min.X), int32(b.Max.Y - b.Min.Y)
-    var x, y, xx, yy int32
     
-    var screen = sdl.SetVideoMode(int(width), int(height), 32, sdl.RESIZABLE)
- 
-    if screen == nil {
-        log.Fatal(sdl.GetError())
-    }
+    var screen = initSdl(width, height)
 
+    fillModel(screen, width, height, ColMaterial)
     
+    var x, y, xx, yy int32    
     for y = 0; y < height; y++ {
         for x = 0; x < width; x++ {
             if !pixSet(x, y, pic) {
