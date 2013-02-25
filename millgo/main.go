@@ -167,6 +167,18 @@ func nearIterNext(cx, cy, prevX, prevY, prevA int32) (x, y, a int32) {
 	return cx - a, cy - a, a
 }
 
+func iterTest() {
+
+	for x, y, a := nearIterBegin(100, 100); a < 100; x, y, a = nearIterNext(100, 100, x, y, a) {
+		fmt.Printf("x=%d y=%d a=%d\n", x, y, a)
+		fmt.Scanln()
+	}
+}
+
+func inRect(x, y, w, h int32) bool {
+	return x >= 0 && y >= 0 && x < w && y < h
+}
+
 // Same as near iter function above just returning points in rectangle
 func nearRectBegin(cx, cy, w, h int32) (x, y, a int32, ok bool) {
 
@@ -184,7 +196,7 @@ func nearRectNext(cx, cy, prevX, prevY, prevA, w, h int32) (x, y, a int32, ok bo
 	x, y, a = prevX, prevY, prevA
 	for {
 		x, y, a = nearIterNext(cx, cy, x, y, a)
-		if x >= 0 && y >= 0 && x < w && y < h {
+		if inRect(x, y, w, h) {
 			ok = true
 			return
 		}
@@ -196,14 +208,6 @@ func nearRectNext(cx, cy, prevX, prevY, prevA, w, h int32) (x, y, a int32, ok bo
 	return
 }
 
-func iterTest() {
-
-	for x, y, a := nearIterBegin(100, 100); a < 100; x, y, a = nearIterNext(100, 100, x, y, a) {
-		fmt.Printf("x=%d y=%d a=%d\n", x, y, a)
-		fmt.Scanln()
-	}
-}
-
 // Return true if point x,y is inside of cirlcle with center cx,cy and radius r
 func inRadius(x, y, cx, cy, r int32) bool {
 	var dx int32 = cx - x
@@ -211,35 +215,44 @@ func inRadius(x, y, cx, cy, r int32) bool {
 	return dx*dx+dy*dy <= r*r
 }
 
+func inRadiusBegin(cx, cy, r, w, h int32) (x, y int32, ok bool) {
+	x, y = cx-r, cy-r
+	ok = inRect(x, y, w, h)
+	if !ok {
+		x, y, ok = inRadiusNext(x, y, cx, cy, r, w, h)
+	}
+	return
+}
+
 // Return next point inside circle with center cx,cy and radius r
-func nextInRadius(x, y, cx, cy, r int32) (bool, int32, int32) {
+func inRadiusNext(x, y, cx, cy, r, w, h int32) (int32, int32, bool) {
 	for {
 		x++
 		if x <= cx+r {
-			if inRadius(x, y, cx, cy, r) {
-				return true, x, y
+			if inRadius(x, y, cx, cy, r) && inRect(x, y, w, h) {
+				return x, y, true
 			}
 			continue
 		}
 		y++
 		if y <= cy+r {
 			x = cx - r
-			if inRadius(x, y, cx, cy, r) {
-				return true, x, y
+			if inRadius(x, y, cx, cy, r) && inRect(x, y, w, h) {
+				return x, y, true
 			}
 			continue
 		}
 		break
 	}
-	return false, cx - r, cy - r
+	return -1, -1, false
 }
 
 // Find a x, y where is material to be removed
 func find2Remove(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32) (bool, int32, int32) {
 
-	for x, y, a, ok := nearRectBegin(currX, currY, w, h); ok; x, y, a, ok = nearRectNext(currX, currY, x, y, a, w, h) {
+	for cx, cy, a, ok := nearRectBegin(currX, currY, w, h); ok; cx, cy, a, ok = nearRectNext(currX, currY, cx, cy, a, w, h) {
 
-		val := sdlGet(x, y, ss)
+		val := sdlGet(cx, cy, ss)
 		//fmt.Printf("x=%d y=%d val=%d\n", x, y, val)
 		if (val & skipCol) != 0 { // already visited/removed material
 			continue
@@ -248,29 +261,16 @@ func find2Remove(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32) (
 		// Check if we dont remove part of model in range
 		remModel := (val & ColModel) != 0
 		remMaterial := (val == 0)
-		for xx := x - r; xx <= x+r && !remModel; xx++ {
 
-			if xx < 0 || xx >= w {
-				continue
-			}
+		for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
 
-			for yy := y - r; yy <= y+r; yy++ {
-				if yy < 0 || yy >= h {
-					continue
-				}
-
-				if !inRadius(xx, yy, x, y, r) {
-					continue
-				}
-
-				val := sdlGet(xx, yy, ss)
-				remModel = remModel || ((val & ColModel) != 0)
-                remMaterial = remMaterial || (val == 0)
-			}
+			val := sdlGet(x, y, ss)
+			remModel = remModel || ((val & ColModel) != 0)
+			remMaterial = remMaterial || (val == 0)
 		}
 
 		if remMaterial && !remModel {
-			return true, x, y
+			return true, cx, cy
 		}
 	}
 
@@ -278,49 +278,27 @@ func find2Remove(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32) (
 }
 
 // Remove material at x,y in radius r. The args w and h are surface dimensions
-func removeMaterial(ss *sdl.Surface, w, h, x, y, r int32) {
-	for xx := x - r; xx <= x+r; xx++ {
-		if xx < 0 || xx >= w {
-			continue
-		}
+func removeMaterial(ss *sdl.Surface, w, h, cx, cy, r int32) {
 
-		for yy := y - r; yy <= y+r; yy++ {
-			if yy < 0 || yy >= h {
-				continue
-			}
-			if inRadius(xx, yy, x, y, r) {
-				sdlSet(xx, yy, ColRemoved, ss)
-			}
-		}
+	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
+		sdlSet(x, y, ColRemoved, ss)
 	}
-	sdlSet(x, y, ColVisited, ss)
+	sdlSet(cx, cy, ColVisited, ss)
 }
 
 // Return volume of material that would be removed at given point. Return -1 if
 // model part would be removed
-func removeCount(ss *sdl.Surface, w, h, x, y, r int32) int32 {
-	var count int32
-	for xx := x - r; xx <= x+r; xx++ {
-		if xx < 0 || xx >= w {
+func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
+	var count int32 = 0
+	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
+		val := sdlGet(x, y, ss)
+		if (val & ColModel) != 0 { // part of model
+			return -1
+		}
+		if (val & ColRemoved) != 0 { // already removed
 			continue
 		}
-
-		for yy := y - r; yy <= y+r; yy++ {
-			if yy < 0 || yy >= h {
-				continue
-			}
-			if !inRadius(xx, yy, x, y, r) {
-				continue
-			}
-			val := sdlGet(xx, yy, ss)
-			if (val & ColModel) != 0 { // part of model
-				return -1
-			}
-			if (val & ColRemoved) != 0 { // already removed
-				continue
-			}
-			count++
-		}
+		count++
 	}
 	return count
 }
@@ -335,7 +313,7 @@ func bestDir(count, count1, count2, count3 int32) bool {
 
 func main() {
 
-	var r int32 = 15
+	var r int32 = 6
 
 	img, w, h := pngLoad("case1.png") // image
 	ss := sdlInit(w, h)               // sdl surface
@@ -345,6 +323,10 @@ func main() {
 	var ok bool
 	var x, y int32 = 0, 0
 
+	// Start searching point to remove in where is material - this will fastly
+	// remove most of the material. Then we switch to visited mode - this will
+	// search in find2Remove also in removed material and will remove the small
+	// remaining parts
 	colMask := ColRemoved
 	for {
 		ok, x, y = find2Remove(ss, x, y, w, h, r, colMask)
@@ -384,6 +366,8 @@ func main() {
 			ss.Flip()
 		}
 	}
+	
+	fmt.Printf("done!\n")
 
 	for true {
 	}
