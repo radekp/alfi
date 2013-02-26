@@ -217,7 +217,7 @@ func inRadius(x, y, cx, cy, r int32) bool {
 
 func inRadiusBegin(cx, cy, r, w, h int32) (x, y int32, ok bool) {
 	x, y = cx-r, cy-r
-	ok = inRect(x, y, w, h)
+	ok = inRadius(x, y, cx, cy, r) && inRect(x, y, w, h)
 	if !ok {
 		x, y, ok = inRadiusNext(x, y, cx, cy, r, w, h)
 	}
@@ -289,7 +289,12 @@ func removeMaterial(ss *sdl.Surface, w, h, cx, cy, r int32) {
 // Return volume of material that would be removed at given point. Return -1 if
 // model part would be removed
 func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
-	var count int32 = 0
+	
+    if !inRect(cx, cy, w, h) {
+        return -1
+    }
+    
+    var count int32 = 0
 	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
 		val := sdlGet(x, y, ss)
 		if (val & ColModel) != 0 { // part of model
@@ -317,7 +322,7 @@ func bestDir(count, count1, count2, count3, count4, count5, count6, count7 int32
 
 func main() {
 
-	var r int32 = 6
+	var r int32 = 5
 
 	img, w, h := pngLoad("case1.png") // image
 	ss := sdlInit(w, h)               // sdl surface
