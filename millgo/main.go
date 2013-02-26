@@ -304,11 +304,15 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 }
 
 // Is count (in given dir) best?
-func bestDir(count, count1, count2, count3 int32) bool {
+func bestDir(count, count1, count2, count3, count4, count5, count6, count7 int32) bool {
 	return count > 0 &&
 		count >= count1 &&
 		count >= count2 &&
-		count >= count3
+		count >= count3 &&
+		count >= count4 &&
+		count >= count5 &&
+		count >= count6 &&
+		count >= count7
 }
 
 func main() {
@@ -344,21 +348,38 @@ func main() {
 		ss.Flip()
 
 		for {
-			countN := removeCount(ss, w, h, x, y+1, r)
-			countS := removeCount(ss, w, h, x, y-1, r)
+			countN := removeCount(ss, w, h, x, y-1, r)
+			countS := removeCount(ss, w, h, x, y+1, r)
 			countE := removeCount(ss, w, h, x+1, y, r)
 			countW := removeCount(ss, w, h, x-1, y, r)
 
-			if bestDir(countN, countS, countE, countW) {
-				y++
-			} else if bestDir(countS, countN, countE, countW) {
+			countNE := removeCount(ss, w, h, x+1, y-1, r)
+			countSE := removeCount(ss, w, h, x+1, y+1, r)
+			countSW := removeCount(ss, w, h, x-1, y+1, r)
+			countNW := removeCount(ss, w, h, x-1, y-1, r)
+
+			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
 				y--
-			} else if bestDir(countE, countN, countS, countW) {
+			} else if bestDir(countS, countN, countE, countW, countNE, countSE, countSW, countNW) {
+				y++
+			} else if bestDir(countE, countN, countS, countW, countNE, countSE, countSW, countNW) {
 				x++
-			} else if bestDir(countW, countN, countE, countS) {
+			} else if bestDir(countW, countN, countE, countS, countNE, countSE, countSW, countNW) {
 				x--
+			} else if bestDir(countNE, countN, countS, countE, countW, countSE, countSW, countNW) {
+				x++
+				y--
+			} else if bestDir(countSE, countN, countS, countE, countW, countNE, countSW, countNW) {
+				x++
+				y++
+			} else if bestDir(countSW, countN, countS, countE, countW, countNE, countSE, countNW) {
+				x--
+				y++
+			} else if bestDir(countNW, countN, countS, countE, countW, countNE, countSE, countSW) {
+				x--
+				y--
 			} else {
-				fmt.Printf("no good dir %d %d %d %d\n", countN, countS, countE, countW)
+				fmt.Printf("no good dir %d %d %d %d %d %d %d %d\n", countN, countS, countE, countW, countNE, countSE, countSW, countNW)
 				break
 			}
 
@@ -366,7 +387,7 @@ func main() {
 			ss.Flip()
 		}
 	}
-	
+
 	fmt.Printf("done!\n")
 
 	for true {
