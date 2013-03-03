@@ -11,24 +11,24 @@ import (
 )
 
 func abs(value int) int {
-    if value >= 0 {
-        return value
-    }
-    return -value
+	if value >= 0 {
+		return value
+	}
+	return -value
 }
 
 func min(a, b int32) int32 {
-    if a < b {
-        return a
-    }
-    return b
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func max(a, b int32) int32 {
-    if a > b {
-        return a
-    }
-    return b
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -48,6 +48,18 @@ var (
 	ColRemoved  = uint32(0x7f0000)
 	ColVisited  = uint32(0x800000)
 	ColDebug    = uint32(0x0000ff)
+)
+
+// Directions
+var (
+	dirN  = int32(0)
+	dirS  = int32(1)
+	dirE  = int32(2)
+	dirW  = int32(3)
+	dirNW = int32(4)
+	dirNE = int32(5)
+	dirSE = int32(6)
+	dirSW = int32(7)
 )
 
 func pngLoad(fname string) (img image.Image, width, height int32) {
@@ -468,69 +480,72 @@ func checkPath(ss *sdl.Surface, x, y, tX, tY, w, h, r, checkX, checkY int32) int
     return findPath(ss, checkX, checkY, tX, tY, w, h, r)
 }*/
 
-// Distances to target point in north, south, east, west directions
-type Distances struct {
-	n, s, e, w int32
-}
-
 var (
-    DistMax = int32(0x1fffffff)
+	DistMax = int32(0x1fffffff)
 )
 
-
-func dumpDists(d Distances) {
-                        if d.n != DistMax { fmt.Printf("%2d ", d.n) } else { fmt.Printf("   ") }
-                        if d.s != DistMax { fmt.Printf("%2d ", d.s) } else { fmt.Printf("   ") }
-                        if d.e != DistMax { fmt.Printf("%2d ", d.e) } else { fmt.Printf("   ") }
-                        if d.w != DistMax { fmt.Printf("%2d ", d.w) } else { fmt.Printf("   ") }
+func dumpDists(d []int32) {
+	if d[0] != DistMax {
+		fmt.Printf("%2d ", d[0])
+	} else {
+		fmt.Printf("   ")
+	}
+	if d[1] != DistMax {
+		fmt.Printf("%2d ", d[1])
+	} else {
+		fmt.Printf("   ")
+	}
+	if d[2] != DistMax {
+		fmt.Printf("%2d ", d[2])
+	} else {
+		fmt.Printf("   ")
+	}
+	if d[3] != DistMax {
+		fmt.Printf("%2d ", d[3])
+	} else {
+		fmt.Printf("   ")
+	}
 }
 
-func bestDist(d Distances) int32 {
-    
-	if d.n <= d.s && d.n <= d.e && d.n <= d.w {
-		return d.n
+func bestDist(d []int32) int32 {
+
+	if d[0] <= d[1] && d[0] <= d[2] && d[0] <= d[3] {
+		return d[0]
 	}
-	if d.s <= d.e && d.s <= d.w {
-		return d.s
+	if d[1] <= d[2] && d[1] <= d[3] {
+		return d[1]
 	}
-	if d.e <= d.w {
-		return d.e
+	if d[2] <= d[3] {
+		return d[2]
 	}
-	return d.w
+	return d[3]
 }
 
-// Return distance from (ax,ay) to (bx,by) of nearby points in matrix
-/*func getDist(dist [][]Distances, ax, ay, bx, by, w, h, r int32) bool, int32 {
-    
-    if !inRect(bx, by, w, h) {
-        return false, DistMax
-    }
-    
-    bd := bestDist(dist[ax][ay])
-    if bd < dist[bx][by]
-        
-    return true
- /*
-            if inRect(x, y+1, w, h) {
-                bd := bestDist(d)
-                fmt.Printf("     x=%d y=%d bd=%d\n", x, y+1, bd)
-                fmt.Scanln()
-                if bd < dist[x][y+1].n {
-                    dist[x][y+1].n = bd + 1
-                    usedA = a
-                } else {
-                    done = false
-                }
-            }
- 
-}*/
+// Set distance of nearby points (from point ax,ay -> bx,by) in given dir (0=N,
+// 1=S, 2=E, 3=W)
+func setDist(dist [][][]int32, aX, aY, bX, bY, dir, w, h, r int32, done bool) bool {
+
+	if !inRect(bX, bY, w, h) {
+		return done
+	}
+
+	dA := dist[aX][aY]
+	dB := dist[bX][bY]
+
+	best := bestDist(dA) + 1
+	if best < dB[dir] {
+		dB[dir] = best
+		return false
+	}
+	return done
+}
 
 // Find path from cX,cY to tX,tY so that no part of model is removed
 func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 
-    fmt.Printf("findPath tX=%d tY=%d\n", tX, tY)
-    
-    // The algorithm is flood-fill like:
+	fmt.Printf("findPath tX=%d tY=%d\n", tX, tY)
+
+	// The algorithm is flood-fill like:
 	// For earch pixel we remember shortest distance to target point in 4
 	// directions (N,S,E,W). Starting at point (tX,tY) all the distances are 0,
 	// e.g. for (tX+1,cY) the distnace in W is 1, others are 3 etc..
@@ -544,102 +559,58 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 	// (after going twice west). From the same point it also implies that W=3
 	// (after going WN), S=5 (e.g. after going NNWW), E=5 (after WNWW).
 	tx, ty := int(tX), int(tY)
-	dist := make([][]Distances, w)
+	dist := make([][][]int32, w)
 	for x := range dist {
-		dist[x] = make([]Distances, h)
+		dist[x] = make([][]int32, h)
 		for y := range dist[x] {
-            
-            dx := abs(x - tx)
-            dy := abs(y - ty)
-            
+
+			dx := abs(x - tx)
+			dy := abs(y - ty)
 			if x == tx && y == ty {
-				dist[x][y] = Distances{0, 0, 0, 0}
-			} else if dx + dy == 1 {
-                dist[x][y] = Distances{1, 1, 1, 1}
-            } else {
-				dist[x][y] = Distances{DistMax, DistMax, DistMax, DistMax}
+				dist[x][y] = []int32{0, 0, 0, 0}
+			} else if dx+dy == 1 {
+				dist[x][y] = []int32{1, 1, 1, 1}
+			} else {
+				dist[x][y] = []int32{DistMax, DistMax, DistMax, DistMax}
 			}
 		}
 	}
 
 	for {
 		done := true
-		var usedA int32
 		for x, y, a, ok := nearRectBegin(tX, tY, w, h); ok; x, y, a, ok = nearRectNext(tX, tY, x, y, a, w, h) {
-			d := dist[x][y]
-			            
-               for i := tY - 3; i <= tY + 3; i++ {
-                    for j := tX - 3; j <= tX + 3; j++ {
-                        if !inRect(i, j, w, h) {
-                            continue
-                        }
-                        dumpDists(dist[j][i])
-                        fmt.Printf("| ")
-                    }
-                    fmt.Println()
-                }
-                fmt.Scanln()
 
-            
-            if a - usedA > 1 {
-                fmt.Printf("====== x=%d y=%d a=%d usedA=%d\n", x, y, a, usedA)
-                break
-            }
-            
-            fmt.Printf("x=%d y=%d a=%d usedA=%d: ", x, y, a, usedA)
-            dumpDists(d)
-            fmt.Scanln()
-
-			
-			if inRect(x, y+1, w, h) {
-				bd := bestDist(d)
-                fmt.Printf("     x=%d y=%d bd=%d\n", x, y+1, bd)
-                fmt.Scanln()
-				if bd < dist[x][y+1].n {
-					dist[x][y+1].n = bd + 1
-					usedA = a
-				} else {
-					done = false
+            /*
+			for i := tY - 3; i <= tY+3; i++ {
+				for j := tX - 3; j <= tX+3; j++ {
+					if !inRect(i, j, w, h) {
+						continue
+					}
+					dumpDists(dist[j][i])
+					fmt.Printf("| ")
 				}
+				fmt.Println()
 			}
-			
-			if inRect(x, y-1, w, h) {
-                bd := bestDist(d)
-                //fmt.Printf("     x=%d y=%d bd=%d\n", x, y-1, bd)
-                //fmt.Scanln()
-                if bd < dist[x][y-1].s {
-                    dist[x][y-1].s = bd + 1
-                    usedA = a
-                } else {
-                    done = false
-                }
+			fmt.Printf("x=%d y=%d a=%d done=%t\n", x, y, a, done)
+			fmt.Scanln()*/
+
+            
+            prevDone := done
+
+			done = setDist(dist, x, y, x, y+1, dirN, w, h, r, done)
+			done = setDist(dist, x, y, x, y-1, dirS, w, h, r, done)
+			done = setDist(dist, x, y, x-1, y, dirE, w, h, r, done)
+			done = setDist(dist, x, y, x+1, y, dirW, w, h, r, done)
+
+            if prevDone != done {
+                fmt.Printf("x=%d y=%d a=%d\n", x, y, a)
             }
-            if inRect(x+1, y, w, h) {
-                bd := bestDist(d)
-                //fmt.Printf("     x=%d y=%d bd=%d\n", x+1, y, bd)
-                //fmt.Scanln()
-                if bd < dist[x+1][y].w {
-                    dist[x+1][y].w = bd + 1
-                    usedA = a
-                } else {
-                    done = false
-                }
-            }
-			if inRect(x-1, y, w, h) {
-                bd := bestDist(d)
-                //fmt.Printf("     x=%d y=%d bd=%d\n", x-1, y, bd)
-                //fmt.Scanln()
-                if bd < dist[x-1][y].e {
-                    dist[x-1][y].e = bd + 1
-                    usedA = a
-                } else {
-                    done = false
-                }
-            }
+
+            
 		}
 		if done {
-            break
-        }
+			break
+		}
 	}
 
 	return true
