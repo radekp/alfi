@@ -799,11 +799,24 @@ void MainWindow::on_bMill_clicked()
         loadSvg("/home/radek/alfi/gui/lcd_milling.svg", lcdX1, lcdY1, lcdX2,
                 lcdY2, lcdLines, 65535, minX, maxX, minY, maxY);
 
+    // Prepare for display hole (our driller is not high enought to make it in one go)
+    QStringList lcpLines;
+    static qint64 lcpX1[65535];
+    static qint64 lcpY1[65535];
+    static qint64 lcpX2[65535];
+    static qint64 lcpY2[65535];
+    static int lcpColors[65535];
+
+    int lcpCount =
+        loadSvg("/home/radek/alfi/gui/lcd_prepare.svg", lcpX1, lcpY1, lcpX2,
+                lcpY2, lcpLines, 65535, minX, maxX, minY, maxY);
+
     mirror(pcbX1, pcbY1, pcbX2, pcbY2, pcbCount, minX, maxX, minY, maxY);
     mirror(shapeX1, shapeY1, shapeX2, shapeY2, shapeCount, minX, maxX, minY,
            maxY);
     mirror(lcmX1, lcmY1, lcmX2, lcmY2, lcmCount, minX, maxX, minY, maxY);
     mirror(lcdX1, lcdY1, lcdX2, lcdY2, lcdCount, minX, maxX, minY, maxY);
+    mirror(lcpX1, lcpY1, lcpX2, lcpY2, lcpCount, minX, maxX, minY, maxY);
 
     int driftX = 0;
     qint64 lastX = shapeX1[0];
@@ -815,40 +828,49 @@ void MainWindow::on_bMill_clicked()
     millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 2, driftX, shapeLines, lastX, lastY);    // 0.5mm
     moveZ(-2, driftX);
 
-    // Move to pcb -0.5 above and mill it 5mm down
-    for (int i = 1; i <= 11; i++) {
+    // Move to pcb -0.5 above and mill it 7mm down
+    for (int i = 1; i <= 15; i++) {
         millShape(pcbX1, pcbY1, pcbX2, pcbY2, pcbColors, pcbCount, i, driftX, pcbLines, lastX, lastY);  // -0.5..5mm
         moveZ(1, driftX);
     }
 
     // Move to LCM -0.5 above
-    moveZ(-11, driftX);
+    moveZ(-15, driftX);
 
-    // LCM module 5mm + 4mm down
-    for (int i = 1; i <= 19; i++) {
-        millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX, lcmLines, lastX, lastY);  // -0.5..9mm
+    // LCM module 7mm + 4mm down
+    for (int i = 1; i <= 23; i++) {
+        millShape(lcmX1, lcmY2, lcmX2, lcmY2, lcmColors, lcmCount, i, driftX, lcmLines, lastX, lastY);  // -0.5..11mm
+        moveZ(1, driftX);
+    }
+
+    // Move to prepare LCD -0.5 above
+    moveZ(-23, driftX);
+
+    // Prepare for LCD display
+    for (int i = 1; i <= 7; i++) {
+        millShape(lcpX1, lcpY2, lcpX2, lcpY2, lcpColors, lcpCount, i, driftX, lcpLines, lastX, lastY);  // -0.5..3mm
         moveZ(1, driftX);
     }
 
     // Move to LCD -0.5 above
-    moveZ(-19, driftX);
+    moveZ(-5, driftX);
 
-    // LCD display 5+4+3mm down
-    for (int i = 1; i <= 25; i++) {
-        millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX, lcdLines, lastX, lastY);  // -0.5..12mm
+    // LCD display 7+4+3mm down
+    for (int i = 1; i <= 29; i++) {
+        millShape(lcdX1, lcdY2, lcdX2, lcdY2, lcdColors, lcdCount, i, driftX, lcdLines, lastX, lastY);  // -0.5..14mm
         moveZ(1, driftX);
     }
 
     // Move to outer shape -1.5 above
-    moveZ(-27, driftX);
+    moveZ(-31, driftX);
 
-    // Outer shape 5+4+3+3mm down
-    for (int i = 1; i <= 33; i++) {
+    // Outer shape 7+4+3+3mm down
+    for (int i = 1; i <= 37; i++) {
         millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);    // -0.5..15mm
         moveZ(1, driftX);
     }
 
-    moveZ(-33, driftX);
+    moveZ(-37, driftX);
 }
 
 // Compute milling path taking into account driller radius
