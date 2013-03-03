@@ -17,6 +17,13 @@ func abs(value int) int {
 	return -value
 }
 
+func abs32(value int32) int32 {
+    if value >= 0 {
+        return value
+    }
+    return -value
+}
+
 func min(a, b int32) int32 {
 	if a < b {
 		return a
@@ -121,6 +128,15 @@ func sdlSet(x int32, y int32, value uint32, ss *sdl.Surface) {
 	*pp |= value
 }
 
+func sdlSet2(x int32, y int32, value uint32, ss *sdl.Surface) {
+    var pix = uintptr(ss.Pixels)
+    pix += (uintptr)((y*ss.W)+x) * unsafe.Sizeof(value)
+    var pu = unsafe.Pointer(pix)
+    var pp *uint32
+    pp = (*uint32)(pu)
+    *pp = value
+}
+
 func sdlGet(x int32, y int32, ss *sdl.Surface) uint32 {
 	var pix = uintptr(ss.Pixels)
 	pix += (uintptr)((y*ss.W)+x) * 4
@@ -128,6 +144,18 @@ func sdlGet(x int32, y int32, ss *sdl.Surface) uint32 {
 	var pp *uint32
 	pp = (*uint32)(pu)
 	return *pp
+}
+
+func undrawDebug(ss *sdl.Surface, w, h int32) {
+    
+    var x, y int32
+    for y = 0; y < h; y++ {
+        for x = 0; x < w; x++ {
+            col := sdlGet(x, y, ss) & (^ColDebug)
+            sdlSet2(x, y, col, ss)
+        }
+    }
+    ss.Flip()
 }
 
 // Draw model onto SDL surface
@@ -523,17 +551,25 @@ func bestDist(d []int32) int32 {
 
 // Set distance of nearby points (from point ax,ay -> bx,by) in given dir (0=N,
 // 1=S, 2=E, 3=W)
-func setDist(dist [][][]int32, aX, aY, bX, bY, dir, w, h, r int32, done bool) bool {
+func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, currBestDist int32, done bool) bool {
 
-	if !inRect(bX, bY, w, h) {
-		return done
-	}
+    if !inRect(bX, bY, w, h) {
+        return done
+    }
 
 	dA := dist[aX][aY]
 	dB := dist[bX][bY]
 
 	best := bestDist(dA) + 1
-	if best < dB[dir] {
+
+	if currBestDist >= currBestDist {       // we alredy have better distance
+        return done
+    }
+
+	if best < dB[dir] && removeCount(ss, w, h, bX, bY, r) != -1 {       // part of model would be removed
+
+        sdlSet(aX, aY, ColDebug, ss)
+
 		dB[dir] = best
 		return false
 	}
@@ -578,10 +614,16 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 
 	for {
 		done := true
+		currBestDist := DistMax
 		for x, y, a, ok := nearRectBegin(tX, tY, w, h); ok; x, y, a, ok = nearRectNext(tX, tY, x, y, a, w, h) {
 
-            /*
-			for i := tY - 3; i <= tY+3; i++ {
+            if abs32(x - cX) >= currBestDist || abs32(y - cY) >= currBestDist {
+                continue
+            }
+            currBestDist = bestDist(dist[cX][cY])
+
+            
+/*			for i := tY - 3; i <= tY+3; i++ {
 				for j := tX - 3; j <= tX+3; j++ {
 					if !inRect(i, j, w, h) {
 						continue
@@ -591,23 +633,25 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 				}
 				fmt.Println()
 			}
-			fmt.Printf("x=%d y=%d a=%d done=%t\n", x, y, a, done)
+			fmt.Printf("x=%d y=%d a=%d done=%t currBestDist=%d\n", x, y, a, done, currBestDist)
 			fmt.Scanln()*/
-
             
-            prevDone := done
 
-			done = setDist(dist, x, y, x, y+1, dirN, w, h, r, done)
-			done = setDist(dist, x, y, x, y-1, dirS, w, h, r, done)
-			done = setDist(dist, x, y, x-1, y, dirE, w, h, r, done)
-			done = setDist(dist, x, y, x+1, y, dirW, w, h, r, done)
-
-            if prevDone != done {
-                fmt.Printf("x=%d y=%d a=%d\n", x, y, a)
+            if x % 16 == 0 && y % 16 == 0 {
+                ss.Flip()
             }
-
             
+			done = setDist(ss, dist, x, y, x, y+1, dirN, w, h, r, currBestDist, done)
+			done = setDist(ss, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done)
+			done = setDist(ss, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done)
+			done = setDist(ss, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done)
 		}
+
+        fmt.Printf("currBestDist=%d\n", currBestDist)
+		
+        undrawDebug(ss, w, h)
+
+		
 		if done {
 			break
 		}
