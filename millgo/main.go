@@ -535,18 +535,22 @@ func dumpDists(d []int32) {
 	}
 }
 
-func bestDist(d []int32) int32 {
+func bestDist(d []int32) int {
 
 	if d[0] <= d[1] && d[0] <= d[2] && d[0] <= d[3] {
-		return d[0]
+		return 0
 	}
 	if d[1] <= d[2] && d[1] <= d[3] {
-		return d[1]
+		return 1
 	}
 	if d[2] <= d[3] {
-		return d[2]
+		return 2
 	}
-	return d[3]
+	return 3
+}
+
+func bestDistVal(d []int32) int32 {
+    return d[bestDist(d)]
 }
 
 // Set distance of nearby points (from point ax,ay -> bx,by) in given dir (0=N,
@@ -560,7 +564,7 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
 	dA := dist[aX][aY]
 	dB := dist[bX][bY]
 
-	best := bestDist(dA) + 1
+	best := bestDistVal(dA) + 1
 
 	if currBestDist >= currBestDist {       // we alredy have better distance
         return done
@@ -620,7 +624,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
             if abs32(x - cX) >= currBestDist || abs32(y - cY) >= currBestDist {
                 continue
             }
-            currBestDist = bestDist(dist[cX][cY])
+            currBestDist = bestDistVal(dist[cX][cY])
 
             
 /*			for i := tY - 3; i <= tY+3; i++ {
@@ -656,6 +660,29 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 			break
 		}
 	}
+	
+	for x,y := cX, cY; x != tX || y != tY; {
+
+            for i := x - 3; i <= x+3; i++ {
+                for j := y - 3; j <= y+3; j++ {
+                    if !inRect(i, j, w, h) {
+                        continue
+                    }
+                    dumpDists(dist[j][i])
+                    fmt.Printf("| ")
+                }
+                fmt.Println()
+            }
+            fmt.Scanln()
+        
+        dir := bestDist(dist[x][y])
+        if dir == 0 {
+            y--
+        }
+        
+        removeMaterial(ss, w, h, x, y, r)
+                ss.Flip()
+    }
 
 	return true
 
