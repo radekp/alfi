@@ -388,6 +388,32 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 	return count
 }
 
+// Like removeCount() but add some point to favourize points close to model
+func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
+
+    if !inRect(cx, cy, w, h) {
+        return -1
+    }
+
+    var count int32 = 0
+    for x, y, okR := inRadiusBegin(cx, cy, r + 1, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r + 1, w, h) {
+        val := sdlGet(x, y, ss)
+        if (val & ColModel) != 0 { // part of model
+            if inRadius(x, y, cx, cy, r) {
+                return -1
+            }
+            count += 6 * r
+        }
+        if (val & ColRemoved) != 0 { // already removed
+            continue
+        }
+        if inRadius(x, y, cx, cy, r) {
+            count++
+        }
+    }
+    return count
+}
+
 // Is count (in given dir) best?
 func bestDir(count, count1, count2, count3, count4, count5, count6, count7 int32) bool {
 	return count > 0 &&
@@ -748,15 +774,15 @@ func main() {
 		ss.Flip()
 
 		for {
-			countN := removeCount(ss, w, h, x, y-1, r)
-			countS := removeCount(ss, w, h, x, y+1, r)
-			countE := removeCount(ss, w, h, x+1, y, r)
-			countW := removeCount(ss, w, h, x-1, y, r)
+			countN := removeCountFavClose(ss, w, h, x, y-1, r)
+			countS := removeCountFavClose(ss, w, h, x, y+1, r)
+			countE := removeCountFavClose(ss, w, h, x+1, y, r)
+			countW := removeCountFavClose(ss, w, h, x-1, y, r)
 
-			countNE := removeCount(ss, w, h, x+1, y-1, r)
-			countSE := removeCount(ss, w, h, x+1, y+1, r)
-			countSW := removeCount(ss, w, h, x-1, y+1, r)
-			countNW := removeCount(ss, w, h, x-1, y-1, r)
+			countNE := removeCountFavClose(ss, w, h, x+1, y-1, r)
+			countSE := removeCountFavClose(ss, w, h, x+1, y+1, r)
+			countSW := removeCountFavClose(ss, w, h, x-1, y+1, r)
+			countNW := removeCountFavClose(ss, w, h, x-1, y-1, r)
 
 			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
 				y--
