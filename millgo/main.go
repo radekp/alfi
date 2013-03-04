@@ -647,6 +647,10 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 			done = setDist(ss, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done)
 			done = setDist(ss, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done)
 			done = setDist(ss, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done)
+            done = setDist(ss, dist, x, y, x+1, y+1, dirSE, w, h, r, currBestDist, done)
+            done = setDist(ss, dist, x, y, x-1, y-1, dirNW, w, h, r, currBestDist, done)
+            done = setDist(ss, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
+            done = setDist(ss, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
 		}
 
         fmt.Printf("currBestDist=%d\n", currBestDist)
@@ -682,9 +686,12 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
             y++
         } else if dir == 2 {
             x++
-        } else {
+        } else if dir == 3 {
             x--
+        } else if dir == 4 {
+            
         }
+        
         fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
         removeMaterial(ss, w, h, x, y, r)
         sdlSet(x, y, ColDebug, ss)
