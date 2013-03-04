@@ -579,15 +579,17 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
 	dA := dist[aX][aY]
 	dB := dist[bX][bY]
 
-	best := bestDistVal(dA) + 1
+	best := bestDistVal(dA) + 4 * r
 	
 	if best >= currBestDist {       // we alredy have better distance (smaller is better)
         return done
     }
 
-	if best < dB[dir] && removeCount(ss, w, h, bX, bY, r) != -1 {       // part of model would be removed
+    rmCount = removeCount(ss, w, h, bX, bY, r)
+    
+	if best < dB[dir] && rm != -1 {       // part of model would be removed
         sdlSet(aX, aY, ColDebug, ss)
-		dB[dir] = best
+		dB[dir] = best - rmCount        // favourize paths that remove more material
 		return false
 	}
 	return done
@@ -634,8 +636,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
                 continue
             }
             currBestDist = bestDistVal(dist[cX][cY])
-
-            
+       
 			/*for i := tY - 3; i <= tY+3; i++ {
 				for j := tX - 3; j <= tX+3; j++ {
 					if !inRect(i, j, w, h) {
@@ -663,33 +664,18 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
             done = setDist(ss, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
             done = setDist(ss, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
 		}
-
-        fmt.Printf("currBestDist=%d\n", currBestDist)
-		
         undrawDebug(ss, w, h)
-
-		
+        
 		if done {
+            if currBestDist == DistMax {
+                return false
+            }
 			break
 		}
 	}
 	
 	for x,y := cX, cY; x != tX || y != tY; {
 
-        /*
-            for i := x - 3; i <= x+3; i++ {
-                for j := y - 3; j <= y+3; j++ {
-                    if !inRect(i, j, w, h) {
-                        continue
-                    }
-                    dumpDists(dist[j][i])
-                    fmt.Printf("| ")
-                }
-                fmt.Println()
-            }
-            fmt.Printf("x=%d y=%d\n", x, y)
-            //fmt.Scanln()*/
-        
         dir := bestDist(dist[x][y])
         if dir == dir_N {
             y--
@@ -714,8 +700,6 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
         sdlSet(x, y, ColDebug, ss)
         ss.Flip()
     }
-    fmt.Scanln()
-    
 
 	return true
 }
