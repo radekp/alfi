@@ -5,7 +5,6 @@ import (
 	"github.com/0xe2-0x9a-0x9b/Go-SDL/sdl"
 	"os"
 	"unsafe"
-	//"math/rand"
 	"image"
 	"image/png"
 )
@@ -391,27 +390,22 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 // Like removeCount() but add some point to favourize points close to model
 func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 
-    if !inRect(cx, cy, w, h) {
-        return -1
+    res := removeCount(ss, w, h, cx, cy, r)
+    if res < 0 {
+        return res
     }
 
-    var count int32 = 0
     for x, y, okR := inRadiusBegin(cx, cy, r + 1, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r + 1, w, h) {
-        val := sdlGet(x, y, ss)
-        if (val & ColModel) != 0 { // part of model
-            if inRadius(x, y, cx, cy, r) {
-                return -1
-            }
-            count += 6 * r
-        }
-        if (val & ColRemoved) != 0 { // already removed
-            continue
-        }
         if inRadius(x, y, cx, cy, r) {
-            count++
+            continue                        // skip until just the circle outline
+        }
+        val := sdlGet(x, y, ss)
+        if (val & ColModel) != 0 {   // nearby to to model
+            res *= 2
         }
     }
-    return count
+    
+    return res
 }
 
 // Is count (in given dir) best?
@@ -525,30 +519,6 @@ func drawLine(ss *sdl.Surface, x, y, tX, tY int32) {
 	}
 }
 
-/*
-func checkPath(ss *sdl.Surface, x, y, tX, tY, w, h, r, checkX, checkY int32) int32 {
-
-    if !inRect(checkX, checkY, w, h) {
-        return -1
-    }
-
-    if (sdlGet(checkX, checkY, ss) & ColDebug) != 0 {     // already checked this point?
-        return -1
-    }
-
-    count := removeCount(ss, w, h, checkX, checkY, r)
-    if count < 0 {
-        return -1        // material would be removed
-    }
-
-    sdlSet(checkX, checkY, ColDebug, ss)
-    if checkX % 5 == 0 && checkY % 5 == 0 {
-        ss.Flip()
-    }
-
-    return findPath(ss, checkX, checkY, tX, tY, w, h, r)
-}*/
-
 var (
 	DistMax = int32(0x1fffffff)
 )
@@ -614,7 +584,7 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
     rmCount := removeCount(ss, w, h, bX, bY, r)
     
 	if best < dB[dir] && rmCount != -1 {       // part of model would be removed
-        //sdlSet(aX, aY, ColDebug, ss)
+        sdlSet(aX, aY, ColDebug, ss)
 		dB[dir] = best - rmCount       // favourize paths that remove more material
 		return false
 	}
@@ -653,11 +623,22 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 		}
 	}
 
-	for {
+    rr4 := 4 * r * r
+
+	for round := 0 ;; round++ {
 		done := true
 		currBestDist := DistMax
-		rr4 := 4 * r * r
-		for x, y, a, ok := nearRectBegin(tX, tY, w, h, 0); ok; x, y, a, ok = nearRectNext(tX, tY, x, y, a, w, h) {
+		drawLine(ss, cX, cY, tX, tY)
+
+        centerX := tX
+        centerY := tY
+        
+        if round % 2 == 1 {
+            centerX = w - tX
+            centerY = h - tY
+        }
+
+		for x, y, a, ok := nearRectBegin(centerX, centerY, w, h, 0); ok; x, y, a, ok = nearRectNext(centerX, centerY, x, y, a, w, h) {
             
             if rr4 * abs32(x - cX) >= currBestDist || rr4 * abs32(y - cY) >= currBestDist {
                 continue
@@ -692,15 +673,18 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
             done = setDist(ss, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
             done = setDist(ss, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
 		}
-        //undrawDebug(ss, w, h)
-                
+
+		            undrawDebug(ss, w, h)
+
+		
 		if done {
+
             if currBestDist == DistMax {
                 return false
             }
 			break
-		}
-	}
+		}        
+    }
 	
 	for x,y := cX, cY; x != tX || y != tY; {
 
@@ -784,6 +768,8 @@ func main() {
 			countSW := removeCountFavClose(ss, w, h, x-1, y+1, r)
 			countNW := removeCountFavClose(ss, w, h, x-1, y-1, r)
 
+            fmt.Printf("== x=%d y=%d\n", x, y)
+            
 			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
 				y--
 			} else if bestDir(countS, countN, countE, countW, countNE, countSE, countSW, countNW) {
