@@ -51,10 +51,10 @@ func max(a, b int32) int32 {
 //
 var (
 	ColMaterial = uint32(0x000000)
-	ColModel    = uint32(0x00ff00)
+	ColModel    = uint32(0x007f00)
 	ColRemoved  = uint32(0x7f0000)
 	ColVisited  = uint32(0x800000)
-	ColDebug    = uint32(0x0000ff)
+	ColDebug    = uint32(0x0080ff)
 )
 
 // Directions
@@ -180,15 +180,19 @@ func drawModel(img image.Image, ss *sdl.Surface, w, h int32) {
 //       8   4
 //       7 6 5
 //
-func nearIterBegin(cx, cy int32) (x, y, a int32) {
-	x, y, a = cx-1, cy-1, 1
-	return
+// If a==0 it will start in cx,cy orherwise a is square side on start
+func nearIterBegin(cx, cy, startA int32) (x, y, a int32) {
+	return cx-startA, cy-startA, startA
 }
 
 // Return next point in spiral
 func nearIterNext(cx, cy, prevX, prevY, prevA int32) (x, y, a int32) {
 
 	x, y, a = prevX, prevY, prevA
+
+	if x == cx && y == cy {
+        return cx - 1, cy -1, a
+    }
 
 	if y == cy-a {
 		x++
@@ -230,7 +234,7 @@ func nearIterNext(cx, cy, prevX, prevY, prevA int32) (x, y, a int32) {
 
 func iterTest() {
 
-	for x, y, a := nearIterBegin(100, 100); a < 100; x, y, a = nearIterNext(100, 100, x, y, a) {
+	for x, y, a := nearIterBegin(100, 100, 1); a < 100; x, y, a = nearIterNext(100, 100, x, y, a) {
 		fmt.Printf("x=%d y=%d a=%d\n", x, y, a)
 		fmt.Scanln()
 	}
@@ -241,9 +245,9 @@ func inRect(x, y, w, h int32) bool {
 }
 
 // Same as near iter function above just returning points in rectangle
-func nearRectBegin(cx, cy, w, h int32) (x, y, a int32, ok bool) {
+func nearRectBegin(cx, cy, w, h, startA int32) (x, y, a int32, ok bool) {
 
-	x, y, a = nearIterBegin(cx, cy)
+	x, y, a = nearIterBegin(cx, cy, startA)
 	if x >= 0 && y >= 0 && x < w && y < h {
 		ok = true
 		return
@@ -312,7 +316,7 @@ func inRadiusNext(x, y, cx, cy, r, w, h int32) (int32, int32, bool) {
 // skipCount can be used to return n-th best.
 func find2Remove(ss *sdl.Surface, currX, currY, w, h, r, skipCount int32, skipCol uint32) (bool, int32, int32) {
 
-	for cx, cy, a, ok := nearRectBegin(currX, currY, w, h); ok; cx, cy, a, ok = nearRectNext(currX, currY, cx, cy, a, w, h) {
+	for cx, cy, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; cx, cy, a, ok = nearRectNext(currX, currY, cx, cy, a, w, h) {
 
 		val := sdlGet(cx, cy, ss)
 		//fmt.Printf("x=%d y=%d val=%d\n", x, y, val)
@@ -565,15 +569,13 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
 	dB := dist[bX][bY]
 
 	best := bestDistVal(dA) + 1
-
-	if currBestDist >= currBestDist {       // we alredy have better distance
+	
+	if best >= currBestDist {       // we alredy have better distance (smaller is better)
         return done
     }
 
 	if best < dB[dir] && removeCount(ss, w, h, bX, bY, r) != -1 {       // part of model would be removed
-
         sdlSet(aX, aY, ColDebug, ss)
-
 		dB[dir] = best
 		return false
 	}
@@ -604,12 +606,8 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 		dist[x] = make([][]int32, h)
 		for y := range dist[x] {
 
-			dx := abs(x - tx)
-			dy := abs(y - ty)
 			if x == tx && y == ty {
 				dist[x][y] = []int32{0, 0, 0, 0}
-			} else if dx+dy == 1 {
-				dist[x][y] = []int32{1, 1, 1, 1}
 			} else {
 				dist[x][y] = []int32{DistMax, DistMax, DistMax, DistMax}
 			}
@@ -619,7 +617,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 	for {
 		done := true
 		currBestDist := DistMax
-		for x, y, a, ok := nearRectBegin(tX, tY, w, h); ok; x, y, a, ok = nearRectNext(tX, tY, x, y, a, w, h) {
+		for x, y, a, ok := nearRectBegin(tX, tY, w, h, 0); ok; x, y, a, ok = nearRectNext(tX, tY, x, y, a, w, h) {
 
             if abs32(x - cX) >= currBestDist || abs32(y - cY) >= currBestDist {
                 continue
@@ -627,7 +625,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
             currBestDist = bestDistVal(dist[cX][cY])
 
             
-/*			for i := tY - 3; i <= tY+3; i++ {
+			/*for i := tY - 3; i <= tY+3; i++ {
 				for j := tX - 3; j <= tX+3; j++ {
 					if !inRect(i, j, w, h) {
 						continue
@@ -663,6 +661,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 	
 	for x,y := cX, cY; x != tX || y != tY; {
 
+        /*
             for i := x - 3; i <= x+3; i++ {
                 for j := y - 3; j <= y+3; j++ {
                     if !inRect(i, j, w, h) {
@@ -673,99 +672,28 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
                 }
                 fmt.Println()
             }
-            fmt.Scanln()
+            fmt.Printf("x=%d y=%d\n", x, y)
+            //fmt.Scanln()*/
         
         dir := bestDist(dist[x][y])
         if dir == 0 {
             y--
+        } else if dir == 1 {
+            y++
+        } else if dir == 2 {
+            x++
+        } else {
+            x--
         }
-        
+        fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
         removeMaterial(ss, w, h, x, y, r)
-                ss.Flip()
+        sdlSet(x, y, ColDebug, ss)
+        ss.Flip()
     }
+    fmt.Scanln()
+    
 
 	return true
-
-	/*
-	   fmt.Printf("findPath x=%d y=%d tX=%d tY=%d\n", x, y, tX, tY)
-	   fmt.Scanln()
-
-	   if x == tX && y == tY {
-	       fmt.Printf("hotovo!\n")
-	       return 0
-	   }
-
-	   if !inRect(x, y, w, h) {
-	       return -1
-	   }
-
-	   if (sdlGet(x, y, ss) & ColDebug) != 0 {     // already checked this point?
-	       return -1
-	   }
-
-	   count := removeCount(ss, w, h, x, y, r)
-	   if count < 0 {
-	       return -1        // material would be removed
-	   }
-
-	   sdlSet(x, y, ColDebug, ss)
-	   if x % 16 == 0 && y % 16 == 0 {
-	       ss.Flip()
-	   }
-
-	   cW := findPath(ss, x - 1, y, tX, tY, w, h, r)
-	   cE := findPath(ss, x + 1, y, tX, tY, w, h, r)
-	   cS := findPath(ss, x, y - 1, tX, tY, w, h, r)
-	   cN := findPath(ss, x, y + 1, tX, tY, w, h, r)
-
-	   if cW < cE && cW < cS && cW < cN && cW >= 0 {
-	       return cW
-	   }
-	   if cE < cS && cE < cN && cE >= 0 {
-	       return cE
-	   }
-	   if cS < cN && cS >= 0 {
-	       return cS
-	   }
-	   if cN >= 0 {
-	       return cN
-	   }
-	   return -1
-	*/
-
-	// Straight line to target not removing model part
-	//x, y := moveOnLine(ss, x, y, tX, tY, w, h, r)
-
-	//if newX == tX && newY == tY {
-	//return true
-	//}
-
-	/*
-		    //fmt.Scanln()
-		    drawLine(ss, x, y, tX, tY)
-		    ss.Flip()
-		    //fmt.Scanln()
-
-		    // Try segment of two lines
-		    for mx, my, a, ok := nearRectBegin(x, y, w, h); ok; mx, my, a, ok = nearRectNext(x, y, mx, my, a, w, h) {
-
-		        if my % 10 != 0 || mx % 10 != 0 {
-		            continue
-		        }
-
-		        //drawLine(ss, x, y, mx, my)
-		        //drawLine(ss, mx, my, tX, tY)
-
-		//        fmt.Scanln()
-		        ss.Flip()
-
-
-		        if doLine(ss, x, y, mx, my, w, h, r, true) && 
-		            doLine(ss, mx, my, tX, tY, w, h, r, true) {
-		                return doLine(ss, x, y, mx, my, w, h, r, false) && 
-		                       doLine(ss, mx, my, tX, tY, w, h, r, false)
-		            }
-		    }*/
 }
 
 func move(ss *sdl.Surface, x, y, tX, tY, w, h, r int32) bool {
