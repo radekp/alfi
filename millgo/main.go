@@ -69,6 +69,17 @@ var (
 	dirSW = int32(7)
 )
 
+var (
+    dir_N  = int(0)
+    dir_S  = int(1)
+    dir_E  = int(2)
+    dir_W  = int(3)
+    dir_NW = int(4)
+    dir_NE = int(5)
+    dir_SE = int(6)
+    dir_SW = int(7)
+)
+
 func pngLoad(fname string) (img image.Image, width, height int32) {
 	fmt.Printf("loading %s\n", fname)
 
@@ -607,9 +618,9 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 		for y := range dist[x] {
 
 			if x == tx && y == ty {
-				dist[x][y] = []int32{0, 0, 0, 0}
+				dist[x][y] = []int32{0, 0, 0, 0, 0, 0, 0, 0}
 			} else {
-				dist[x][y] = []int32{DistMax, DistMax, DistMax, DistMax}
+				dist[x][y] = []int32{DistMax, DistMax, DistMax, DistMax, DistMax, DistMax, DistMax, DistMax}
 			}
 		}
 	}
@@ -680,16 +691,22 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
             //fmt.Scanln()*/
         
         dir := bestDist(dist[x][y])
-        if dir == 0 {
+        if dir == dir_N {
             y--
-        } else if dir == 1 {
+        } else if dir == dir_S {
             y++
-        } else if dir == 2 {
+        } else if dir == dir_E {
             x++
-        } else if dir == 3 {
+        } else if dir == dir_W {
             x--
-        } else if dir == 4 {
-            
+        } else if dir == dir_NW {
+            x, y = x - 1, y-1
+        } else if dir == dir_NE {
+            x, y = x + 1, y-1
+        } else if dir == dir_SW {
+            x, y = x - 1, y+1
+        } else if dir == dir_SE {
+            x, y = x + 1, y+1
         }
         
         fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
