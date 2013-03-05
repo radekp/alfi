@@ -5,7 +5,6 @@ import (
 	"github.com/0xe2-0x9a-0x9b/Go-SDL/sdl"
 	"image"
 	"image/png"
-	"math/rand"
 	"os"
 	"unsafe"
 )
@@ -662,14 +661,20 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 		undrawBlue(ss, w, h)
 		drawLine(ss, cX, cY, tX, tY)
 
-		if round%2 == 0 {
+		if round%5 == 0 {
 			done = true
-			centerX = tX
+			centerX, centerY = tX, tY
 			centerY = tY
-		} else {
-			centerX = int32(rand.Intn(int(w)))
-			centerY = int32(rand.Intn(int(h)))
-		}
+		} else if round%5 == 1 {
+			centerX, centerY = 0, 0
+		} else if round%5 == 2 {
+            centerX, centerY = 0, w - 1
+        } else if round%5 == 3 {
+            centerX, centerY = 0, h - 1
+        } else if round%5 == 4 {
+            centerX, centerY = w - 1, h - 1
+        }
+        
 
 		for x, y, a, ok := nearRectBegin(centerX, centerY, w, h, 0); ok; x, y, a, ok = nearRectNext(centerX, centerY, x, y, a, w, h) {
 
@@ -745,7 +750,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 
 func main() {
 
-	var r int32 = 16
+	var r int32 = 8
 
 	img, w, h := pngLoad("case1.png") // image
 	ss := sdlInit(w, h)               // sdl surface
