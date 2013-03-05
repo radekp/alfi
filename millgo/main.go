@@ -5,6 +5,7 @@ import (
 	"github.com/0xe2-0x9a-0x9b/Go-SDL/sdl"
 	"os"
 	"unsafe"
+	"math/rand"
 	"image"
 	"image/png"
 )
@@ -584,7 +585,11 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
     rmCount := removeCount(ss, w, h, bX, bY, r)
     
 	if best < dB[dir] && rmCount != -1 {       // part of model would be removed
-        sdlSet(aX, aY, ColDebug, ss)
+        if aX % 20 == 0 && aY % 20 == 0 {
+            fmt.Printf("setDist x=%d y=%d value=%d currBestDist=%d\n", aX, aY, best, currBestDist)
+            sdlSet(aX, aY, ColDebug, ss)
+            ss.Flip()
+        }
 		dB[dir] = best - rmCount       // favourize paths that remove more material
 		return false
 	}
@@ -596,7 +601,13 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 
 	fmt.Printf("findPath tX=%d tY=%d\n", tX, tY)
 
-	// The algorithm is flood-fill like:
+    // Try straight line first
+    x, y := moveOnLine(ss, cX, cY, tX, tY, w, h, r)
+    if x == tX && y == tY {
+        return true
+    }
+
+    // The algorithm is flood-fill like:
 	// For earch pixel we remember shortest distance to target point in 4
 	// directions (N,S,E,W). Starting at point (tX,tY) all the distances are 0,
 	// e.g. for (tX+1,cY) the distnace in W is 1, others are 3 etc..
@@ -623,27 +634,22 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 		}
 	}
 
+    centerX := tX
+    centerY := tY
     rr4 := 4 * r * r
 
-	for round := 0 ;; round++ {
+    currBestDist := DistMax
+	for {
 		done := true
-		currBestDist := DistMax
+		undrawDebug(ss, w, h)
 		drawLine(ss, cX, cY, tX, tY)
 
-        centerX := tX
-        centerY := tY
-        
-        if round % 2 == 1 {
-            centerX = w - tX
-            centerY = h - tY
-        }
-
 		for x, y, a, ok := nearRectBegin(centerX, centerY, w, h, 0); ok; x, y, a, ok = nearRectNext(centerX, centerY, x, y, a, w, h) {
-            
+
+            currBestDist = bestDistVal(dist[cX][cY])
             if rr4 * abs32(x - cX) >= currBestDist || rr4 * abs32(y - cY) >= currBestDist {
                 continue
             }
-            currBestDist = bestDistVal(dist[cX][cY])
        
 			/*for i := tY - 3; i <= tY+3; i++ {
 				for j := tX - 3; j <= tX+3; j++ {
@@ -658,33 +664,30 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 			fmt.Printf("x=%d y=%d a=%d done=%t currBestDist=%d\n", x, y, a, done, currBestDist)
 			fmt.Scanln()*/
             
-
-            if x % 16 == 0 && y % 16 == 0 {
-                fmt.Printf("x=%d y=%d a=%d currBestDist=%d\n", x, y, a, currBestDist)
-                ss.Flip()
-            }
-            
 			done = setDist(ss, dist, x, y, x, y+1, dirN, w, h, r, currBestDist, done)
 			done = setDist(ss, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done)
 			done = setDist(ss, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done)
 			done = setDist(ss, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done)
-            done = setDist(ss, dist, x, y, x+1, y+1, dirSE, w, h, r, currBestDist, done)
-            done = setDist(ss, dist, x, y, x-1, y-1, dirNW, w, h, r, currBestDist, done)
-            done = setDist(ss, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
-            done = setDist(ss, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
+//             done = setDist(ss, dist, x, y, x+1, y+1, dirSE, w, h, r, currBestDist, done)
+//             done = setDist(ss, dist, x, y, x-1, y-1, dirNW, w, h, r, currBestDist, done)
+//             done = setDist(ss, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
+//             done = setDist(ss, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
 		}
 
-		            undrawDebug(ss, w, h)
+        if currBestDist < DistMax {
+            break
+        }
 
-		
 		if done {
-
             if currBestDist == DistMax {
                 return false
             }
 			break
-		}        
-    }
+		}
+		
+		centerX = int32(rand.Intn(int(w)))
+        centerY = int32(rand.Intn(int(h)))
+	}
 	
 	for x,y := cX, cY; x != tX || y != tY; {
 
