@@ -336,40 +336,6 @@ func inRadiusNext(x, y, cx, cy, r, w, h int32) (int32, int32, bool) {
 	return -1, -1, false
 }
 
-// Find a x, y where is material to be removed. Returns closes point, but
-// skipCount can be used to return n-th best.
-func find2Remove(ss *sdl.Surface, currX, currY, w, h, r, skipCount int32, skipCol uint32) (bool, int32, int32) {
-
-	for cx, cy, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; cx, cy, a, ok = nearRectNext(currX, currY, cx, cy, a, w, h) {
-
-		val := sdlGet(cx, cy, ss)
-		//fmt.Printf("x=%d y=%d val=%d\n", x, y, val)
-		if (val & skipCol) != 0 { // already visited/removed material
-			continue
-		}
-
-		// Check if we dont remove part of model in range
-		remModel := (val & ColModel) != 0
-		remMaterial := (val == 0)
-
-		for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
-
-			val := sdlGet(x, y, ss)
-			remModel = remModel || ((val & ColModel) != 0)
-			remMaterial = remMaterial || (val == 0)
-		}
-
-		if remMaterial && !remModel {
-			if skipCount <= 0 {
-				return true, cx, cy
-			}
-			skipCount--
-		}
-	}
-
-	return false, -1, -1
-}
-
 // Remove material at x,y in radius r. The args w and h are surface dimensions
 func removeMaterial(ss *sdl.Surface, w, h, cx, cy, r int32) {
 
@@ -399,6 +365,105 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 		count++
 	}
 	return count
+}
+
+// Linear path from x,y to target tX,tY. Moves until model part is not removed
+// or target is reached. Returns new coordinates
+func moveOnLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32) (int32, int32) {
+
+    // Bresenham
+    var cx int32 = x
+    var cy int32 = y
+
+    var dx int32 = tX - cx
+    var dy int32 = tY - cy
+    if dx < 0 {
+        dx = 0 - dx
+    }
+    if dy < 0 {
+        dy = 0 - dy
+    }
+
+    var sx int32
+    var sy int32
+    if cx < tX {
+        sx = 1
+    } else {
+        sx = -1
+    }
+    if cy < tY {
+        sy = 1
+    } else {
+        sy = -1
+    }
+    var err int32 = dx - dy
+
+    for {
+        if removeCount(ss, w, h, cx, cy, r) < 0 {
+            return cx, cy
+        }
+        //removeMaterial(ss, w, h, cx, cy, r)
+
+        if (cx == tX) && (cy == tY) {
+            break
+        }
+        var e2 int32 = 2 * err
+        if e2 > (0 - dy) {
+            err = err - dy
+            cx = cx + sx
+        }
+        if e2 < dx {
+            err = err + dx
+            cy = cy + sy
+        }
+    }
+    return tX, tY
+}
+
+func drawLine(ss *sdl.Surface, x, y, tX, tY int32) {
+
+    // Bresenham
+    var cx int32 = x
+    var cy int32 = y
+
+    var dx int32 = tX - cx
+    var dy int32 = tY - cy
+    if dx < 0 {
+        dx = 0 - dx
+    }
+    if dy < 0 {
+        dy = 0 - dy
+    }
+
+    var sx int32
+    var sy int32
+    if cx < tX {
+        sx = 1
+    } else {
+        sx = -1
+    }
+    if cy < tY {
+        sy = 1
+    } else {
+        sy = -1
+    }
+    var err int32 = dx - dy
+
+    for {
+        sdlSet(cx, cy, ColDebug, ss)
+        if (cx == tX) && (cy == tY) {
+            break
+        }
+        var e2 int32 = 2 * err
+        if e2 > (0 - dy) {
+            err = err - dy
+            cx = cx + sx
+        }
+        if e2 < dx {
+            err = err + dx
+            cy = cy + sy
+        }
+    }
 }
 
 // Like removeCount() but add some point to favourize points close to model
@@ -432,105 +497,6 @@ func bestDir(count, count1, count2, count3, count4, count5, count6, count7 int32
 		count >= count5 &&
 		count >= count6 &&
 		count >= count7
-}
-
-// Linear path from x,y to target tX,tY. Moves until model part is not removed
-// or target is reached. Returns new coordinates
-func moveOnLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32) (int32, int32) {
-
-	// Bresenham
-	var cx int32 = x
-	var cy int32 = y
-
-	var dx int32 = tX - cx
-	var dy int32 = tY - cy
-	if dx < 0 {
-		dx = 0 - dx
-	}
-	if dy < 0 {
-		dy = 0 - dy
-	}
-
-	var sx int32
-	var sy int32
-	if cx < tX {
-		sx = 1
-	} else {
-		sx = -1
-	}
-	if cy < tY {
-		sy = 1
-	} else {
-		sy = -1
-	}
-	var err int32 = dx - dy
-
-	for {
-		if removeCount(ss, w, h, cx, cy, r) < 0 {
-			return cx, cy
-		}
-		removeMaterial(ss, w, h, cx, cy, r)
-
-		if (cx == tX) && (cy == tY) {
-			break
-		}
-		var e2 int32 = 2 * err
-		if e2 > (0 - dy) {
-			err = err - dy
-			cx = cx + sx
-		}
-		if e2 < dx {
-			err = err + dx
-			cy = cy + sy
-		}
-	}
-	return tX, tY
-}
-
-func drawLine(ss *sdl.Surface, x, y, tX, tY int32) {
-
-	// Bresenham
-	var cx int32 = x
-	var cy int32 = y
-
-	var dx int32 = tX - cx
-	var dy int32 = tY - cy
-	if dx < 0 {
-		dx = 0 - dx
-	}
-	if dy < 0 {
-		dy = 0 - dy
-	}
-
-	var sx int32
-	var sy int32
-	if cx < tX {
-		sx = 1
-	} else {
-		sx = -1
-	}
-	if cy < tY {
-		sy = 1
-	} else {
-		sy = -1
-	}
-	var err int32 = dx - dy
-
-	for {
-		sdlSet(cx, cy, ColDebug, ss)
-		if (cx == tX) && (cy == tY) {
-			break
-		}
-		var e2 int32 = 2 * err
-		if e2 > (0 - dy) {
-			err = err - dy
-			cx = cx + sx
-		}
-		if e2 < dx {
-			err = err + dx
-			cy = cy + sy
-		}
-	}
 }
 
 var (
@@ -598,13 +564,7 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
 // Find path from cX,cY to tX,tY so that no part of model is removed
 func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 
-	fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d\n", cX, cY, tX, tY)
-
-	// Try straight line first
-	x, y := moveOnLine(ss, cX, cY, tX, tY, w, h, r)
-	if x == tX && y == tY {
-		return true
-	}
+	fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d removeCount=%d\n", cX, cY, tX, tY, removeCount(ss, w, h, tX, tY, r))
 
 	// The algorithm is flood-fill like:
 	// For earch pixel we remember shortest distance to target point in 4
@@ -730,6 +690,48 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 	return true
 }
 
+// Find a x, y where is material to be removed. Returns closes point.
+func find2RemoveAny(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32) (bool, int32, int32) {
+
+    for x, y, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; x, y, a, ok = nearRectNext(currX, currY, x, y, a, w, h) {
+
+        val := sdlGet(x, y, ss)
+        if (val & skipCol) != 0 { // already visited/removed material
+            continue
+        }
+        // Check if we dont remove part of model in range
+        if removeCount(ss, w, h, x, y, r) > 0 {
+            return true, x, y
+        }
+    }
+    return false, -1, -1
+}
+
+// Same as find2Remove but tries to find point on direct line from curr point
+func find2Remove(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32) (bool, int32, int32) {
+    
+    undrawDebug(ss, w, h)
+   for tX, tY, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; tX, tY, a, ok = nearRectNext(currX, currY, tX, tY, a, w, h) {
+       col := sdlGet(tX, tY, ss)
+       if (col & skipCol) != 0 { // already visited/removed material
+           continue
+       }
+       x, y := moveOnLine(ss, currX, currY, tX, tY, w, h, r)
+       if x == tX && y == tY {
+           return true, tX, tY
+       }
+       if tX % 4 == 0 && tY % 4 == 0 {
+        sdlSet(tX, tY, ColDebug, ss)
+        drawLine(ss, currX, currY, tX, tY)
+        ss.Flip()
+       }
+   }
+   fmt.Printf("find2Remove - no straight line\n")
+   ok, tX, tY := find2RemoveAny(ss, currX, currY, w, h, r, skipCol)
+   return ok, tX, tY
+}
+
+
 func main() {
 
 	var r int32 = 8
@@ -745,15 +747,21 @@ func main() {
 	// remove most of the material. Then we switch to visited mode - this will
 	// search in find2Remove also in removed material and will remove the small
 	// remaining parts
-	colMask := ColRemoved
+	skipMask := ColRemoved | ColModel
 	for {
 
-        ok, tX, tY := find2Remove(ss, x, y, w, h, r, 0, colMask)
-		fmt.Printf("find2Remove x=%d y=%d tX=%d tY=%d ok=%t\n", x, y, tX, tY, ok)
+        ok, tX, tY := find2Remove(ss, x, y, w, h, r, ColRemoved | ColModel)
+        
+        if !ok {
+            
+        }
+        
+		fmt.Printf("find2Remove x=%d y=%d tX=%d tY=%d skipMask=%d removeCount=%d ok=%t\n",
+                   x, y, tX, tY, skipMask, removeCount(ss, w, h, tX, tY, r), ok)
 
 		if !ok {
-			if colMask == ColRemoved {      // search for next point, first try to remove material 
-				colMask = ColVisited        // if not found such point, then try all points not visited yet
+			if skipMask == ColRemoved | ColModel {     // search for next point, first try to remove material 
+				skipMask = ColVisited | ColModel       // if not found such point, then try all points not visited yet
 				continue
 			}
 			break
@@ -782,7 +790,7 @@ func main() {
 			countSW := removeCountFavClose(ss, w, h, x-1, y+1, r)
 			countNW := removeCountFavClose(ss, w, h, x-1, y-1, r)
 
-			fmt.Printf("== x=%d y=%d\n", x, y)
+			//fmt.Printf("== x=%d y=%d\n", x, y)
 
 			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
 				y--
