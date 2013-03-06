@@ -754,7 +754,7 @@ func findAndRemove(ss *sdl.Surface, currX, currY, w, h, r int32) (bool, bool, in
 
 func main() {
 
-	var r int32 = 8
+	var r int32 = 12
 
 	img, w, h := pngLoad("case1.png") // image
 	ss := sdlInit(w, h)               // sdl surface
@@ -835,5 +835,7 @@ func main() {
 	fmt.Printf("done!\n")
 
 	for true {
+        ss.Flip()
+        fmt.Scanln()
 	}
 }
