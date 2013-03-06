@@ -369,7 +369,7 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 
 // Linear path from x,y to target tX,tY. Moves until model part is not removed
 // or target is reached. Returns new coordinates
-func moveOnLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32) (int32, int32) {
+func moveOnLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32, rmMaterial bool) (int32, int32) {
 
     // Bresenham
     var cx int32 = x
@@ -402,7 +402,9 @@ func moveOnLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32) (int32, int32) {
         if removeCount(ss, w, h, cx, cy, r) < 0 {
             return cx, cy
         }
-        //removeMaterial(ss, w, h, cx, cy, r)
+        if rmMaterial {
+            removeMaterial(ss, w, h, cx, cy, r)
+        }
 
         if (cx == tX) && (cy == tY) {
             break
@@ -708,17 +710,27 @@ func find2RemoveAny(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32
 }
 
 // Same as find2Remove but tries to find point on direct line from curr point
-func find2Remove(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32) (bool, int32, int32) {
+func findAndRemove(ss *sdl.Surface, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
     
-    undrawDebug(ss, w, h)
+   undrawDebug(ss, w, h)
+   found := false
+   firstTx, firstTy := currX, currY
+   
    for tX, tY, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; tX, tY, a, ok = nearRectNext(currX, currY, tX, tY, a, w, h) {
-       col := sdlGet(tX, tY, ss)
-       if (col & skipCol) != 0 { // already visited/removed material
+       
+       if removeCount(ss, w, h, tX, tY, r) <= 0 {
            continue
        }
-       x, y := moveOnLine(ss, currX, currY, tX, tY, w, h, r)
+       if !found {
+           found = true
+           firstTx, firstTy = tX, tY
+       }
+       
+       // Straight line
+       x, y := moveOnLine(ss, currX, currY, tX, tY, w, h, r, false)
        if x == tX && y == tY {
-           return true, tX, tY
+           moveOnLine(ss, currX, currY, tX, tY, w, h, r, true)
+           return true, true, tX, tY
        }
        if tX % 4 == 0 && tY % 4 == 0 {
         sdlSet(tX, tY, ColDebug, ss)
@@ -726,9 +738,17 @@ func find2Remove(ss *sdl.Surface, currX, currY, w, h, r int32, skipCol uint32) (
         ss.Flip()
        }
    }
-   fmt.Printf("find2Remove - no straight line\n")
-   ok, tX, tY := find2RemoveAny(ss, currX, currY, w, h, r, skipCol)
-   return ok, tX, tY
+   fmt.Printf("findAndRemove - no straight line\n")
+   
+   if found {
+        if findPath(ss, currX, currY, firstTx, firstTy, w, h, r) {
+            return true, true, firstTx, firstTy
+        }
+        fmt.Printf("yay!!\n")
+        fmt.Scanln()
+   }
+   
+   return found, false, firstTx, firstTy
 }
 
 
@@ -747,31 +767,21 @@ func main() {
 	// remove most of the material. Then we switch to visited mode - this will
 	// search in find2Remove also in removed material and will remove the small
 	// remaining parts
-	skipMask := ColRemoved | ColModel
 	for {
 
-        ok, tX, tY := find2Remove(ss, x, y, w, h, r, ColRemoved | ColModel)
-        
-        if !ok {
-            
+        found, removed, tX, tY := findAndRemove(ss, x, y, w, h, r)
+       
+		fmt.Printf("findAndRemove x=%d y=%d tX=%d tY=%d found=%t removed=%t\n",
+                   x, y, tX, tY, found, removed)
+
+		if !found {
+            break;      // we are done on this level
         }
         
-		fmt.Printf("find2Remove x=%d y=%d tX=%d tY=%d skipMask=%d removeCount=%d ok=%t\n",
-                   x, y, tX, tY, skipMask, removeCount(ss, w, h, tX, tY, r), ok)
-
-		if !ok {
-			if skipMask == ColRemoved | ColModel {     // search for next point, first try to remove material 
-				skipMask = ColVisited | ColModel       // if not found such point, then try all points not visited yet
-				continue
-			}
-			break
-		}
-
-		if !findPath(ss, x, y, tX, tY, w, h, r) {
-			fmt.Printf("yay!!\n")
-			fmt.Scanln()
-			continue
-		}
+        if !removed {
+            fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
+            fmt.Scanln()
+        }
 
 		x, y = tX, tY
 		//ss.Flip()
