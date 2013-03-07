@@ -5,6 +5,7 @@ import (
 	"github.com/0xe2-0x9a-0x9b/Go-SDL/sdl"
 	"image"
 	"image/png"
+    "io"
 	"os"
 	"unsafe"
 )
@@ -35,6 +36,16 @@ func max(a, b int32) int32 {
 		return a
 	}
 	return b
+}
+
+// Trajectory computer and output
+type Tco struct {
+    x, y, z int32               // current coordinates
+    cmd io.Writer               // output of commands for arduio driver
+}
+
+func moveXY(t Tco, aX, aY, bX, bY int32) {
+    fmt.Fprintf(t.cmd, "m 10 ")
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -650,7 +661,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 }
 
 // Same as find2Remove but tries to find point on direct line from curr point
-func findAndRemove(ss *sdl.Surface, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
+func findAndRemove(ss *sdl.Surface, tco Tco, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
 
 	undrawDebug(ss, w, h)
 	found := false
@@ -670,6 +681,7 @@ func findAndRemove(ss *sdl.Surface, currX, currY, w, h, r int32) (bool, bool, in
 		x, y := doLine(ss, currX, currY, tX, tY, w, h, r, false, false)
 		if x == tX && y == tY {
 			doLine(ss, currX, currY, tX, tY, w, h, r, false, true)
+            moveXY(tco, currX, currY, tX, tY)
 			return true, true, tX, tY
 		}
 		if tX%4 == 0 && tY%4 == 0 {
@@ -698,6 +710,7 @@ func main() {
 	sdlFill(ss, w, h, ColMaterial)    // we have all material in the begining then we remove the parts so that just model is left
 	drawModel(img, ss, w, h)          // draw the model with green so that we see if we are removing correct parts
 
+    tco := Tco { 0, 0, 0, os.Stdout }
 	var x, y int32 = 0, 0
 
 	// Start searching point to remove in where is material - this will fastly
@@ -706,7 +719,7 @@ func main() {
 	// remaining parts
 	for {
 
-		found, removed, tX, tY := findAndRemove(ss, x, y, w, h, r)
+		found, removed, tX, tY := findAndRemove(ss, tco, x, y, w, h, r)
 
 		//fmt.Printf("findAndRemove x=%d y=%d tX=%d tY=%d found=%t removed=%t\n",
 		//           x, y, tX, tY, found, removed)
