@@ -42,32 +42,67 @@ func max(a, b int32) int32 {
 type Tco struct {
 	pX, pY     int32     // current pixel coordinates
 	mX, mY     int32     // current machine coordinates
-	z          int32     // height
-	cmdCounter int32     // number of unflushed commands
+    z          int32     // height
+	cmdLen     int       // length of unflushed commands
 	cmd        io.Writer // output of commands for arduio driver
 }
 
+func moveXySimple(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
+
+  if aX != t.pX || aY != t.pY {
+       panic(fmt.Sprintf("unexpected move t.pX=%d t.pY=%d aX=%d aY=%d", t.pX, t.pY, aX, aY))
+  }
+
+    newMx, newMy := bX, bY
+
+    if newMx == t.mX && newMy == t.mY {
+        return bX, bY
+    }
+    
+    cmd := "";
+    
+    if newMx != t.mX {
+        cmd += fmt.Sprintf("a0 p%d t%d", t.mX, newMx)        
+    }
+    if newMy != t.mY {
+        if newMx != t.mX {
+            cmd += " "
+        }
+        cmd += fmt.Sprintf("a1 p%d t%d", t.mY, newMy)
+    }
+    cmd += " m"
+    
+    if t.cmdLen + len(cmd) >= 254 {
+        fmt.Fprint(t.cmd, "\n")
+        t.cmdLen = 0
+    } else {
+        if t.cmdLen > 0 {
+            fmt.Fprint(t.cmd, " ")
+            t.cmdLen++
+        }
+        fmt.Fprint(t.cmd, cmd)
+        t.cmdLen += len(cmd)
+    }
+    
+    t.pX, t.pY = bX, bY
+    t.mX, t.mY = newMx, newMy
+       
+    return bX, bY
+}
+
+
 func moveXY(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
 
-	if aX != t.pX || aY != t.pY {
-		panic(fmt.Sprintf("unexpected move t.pX=%d t.pY=%d aX=%d aY=%d", t.pX, t.pY, aX, aY))
-	}
-	newMx, newMy := bX*2, bY*2
-
-	if newMx == t.mX && newMy == t.mY {
-		return bX, bY
-	}
-
-	if newMx != t.mX {
-		fmt.Fprintf(t.cmd, "a0 p%d t%d ", t.mX, newMx)
-	}
-	if newMy != t.mY {
-		fmt.Fprintf(t.cmd, "a1 p%d t%d ", t.mY, newMy)
-	}
-	t.pX, t.pY = bX, bY
-	t.mX, t.mY = newMx, newMy
-
-	return bX, bY
+    // Aggregate move
+    x1, y1 := aX - t.pX, aY - t.pY
+    x2, y2 := bX - aX, bY - aY
+    //fmt.Printf("x1=%d y2=%d   x2=%d y1=%d\n", x1, y2, x2, y1)    
+    if x1 * y2 == x2 * y1 {
+        return bX, bY
+    }
+    
+    moveXySimple(t, t.pX, t.pY, aX, aY)
+    return moveXySimple(t, aX, aY, bX, bY)
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -732,7 +767,7 @@ func main() {
 	sdlFill(ss, w, h, ColMaterial)    // we have all material in the begining then we remove the parts so that just model is left
 	drawModel(img, ss, w, h)          // draw the model with green so that we see if we are removing correct parts
 
-	tco := Tco{0, 0, 0, 0, 0, 0, os.Stdout}
+	tco := Tco{0, 0, 0, 0, 0, 0, os.Stderr}
 	tc := &tco
 	var x, y int32 = 0, 0
 
