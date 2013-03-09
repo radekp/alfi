@@ -53,7 +53,7 @@ func moveXySimple(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
        panic(fmt.Sprintf("unexpected move t.pX=%d t.pY=%d aX=%d aY=%d", t.pX, t.pY, aX, aY))
   }
 
-    newMx, newMy := bX, bY
+    newMx, newMy := bX * 4, bY *4
 
     if newMx == t.mX && newMy == t.mY {
         return bX, bY
@@ -80,9 +80,9 @@ func moveXySimple(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
             fmt.Fprint(t.cmd, " ")
             t.cmdLen++
         }
-        fmt.Fprint(t.cmd, cmd)
-        t.cmdLen += len(cmd)
     }
+    fmt.Fprint(t.cmd, cmd)
+    t.cmdLen += len(cmd)
     
     t.pX, t.pY = bX, bY
     t.mX, t.mY = newMx, newMy
