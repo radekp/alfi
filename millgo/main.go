@@ -5,7 +5,7 @@ import (
 	"github.com/0xe2-0x9a-0x9b/Go-SDL/sdl"
 	"image"
 	"image/png"
-    "io"
+	"io"
 	"os"
 	"unsafe"
 )
@@ -40,12 +40,34 @@ func max(a, b int32) int32 {
 
 // Trajectory computer and output
 type Tco struct {
-    x, y, z int32               // current coordinates
-    cmd io.Writer               // output of commands for arduio driver
+	pX, pY     int32     // current pixel coordinates
+	mX, mY     int32     // current machine coordinates
+	z          int32     // height
+	cmdCounter int32     // number of unflushed commands
+	cmd        io.Writer // output of commands for arduio driver
 }
 
-func moveXY(t Tco, aX, aY, bX, bY int32) {
-    fmt.Fprintf(t.cmd, "m 10 ")
+func moveXY(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
+
+	if aX != t.pX || aY != t.pY {
+		panic(fmt.Sprintf("unexpected move t.pX=%d t.pY=%d aX=%d aY=%d", t.pX, t.pY, aX, aY))
+	}
+	newMx, newMy := bX*2, bY*2
+
+	if newMx == t.mX && newMy == t.mY {
+		return bX, bY
+	}
+
+	if newMx != t.mX {
+		fmt.Fprintf(t.cmd, "a0 p%d t%d ", t.mX, newMx)
+	}
+	if newMy != t.mY {
+		fmt.Fprintf(t.cmd, "a1 p%d t%d ", t.mY, newMy)
+	}
+	t.pX, t.pY = bX, bY
+	t.mX, t.mY = newMx, newMy
+
+	return bX, bY
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -532,7 +554,7 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
 }
 
 // Find path from cX,cY to tX,tY so that no part of model is removed
-func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
+func findPath(ss *sdl.Surface, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 
 	//fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d removeCount=%d\n", cX, cY, tX, tY, removeCount(ss, w, h, tX, tY, r))
 
@@ -634,21 +656,21 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 
 		dir, _ := bestDist(dist[x][y])
 		if dir == dir_N {
-			y--
+			x, y = moveXY(tc, x, y, x, y-1)
 		} else if dir == dir_S {
-			y++
+			x, y = moveXY(tc, x, y, x, y+1)
 		} else if dir == dir_E {
-			x++
+			x, y = moveXY(tc, x, y, x+1, y)
 		} else if dir == dir_W {
-			x--
+			x, y = moveXY(tc, x, y, x-1, y)
 		} else if dir == dir_NW {
-			x, y = x-1, y-1
+			x, y = moveXY(tc, x, y, x-1, y-1)
 		} else if dir == dir_NE {
-			x, y = x+1, y-1
+			x, y = moveXY(tc, x, y, x+1, y-1)
 		} else if dir == dir_SW {
-			x, y = x-1, y+1
+			x, y = moveXY(tc, x, y, x-1, y+1)
 		} else if dir == dir_SE {
-			x, y = x+1, y+1
+			x, y = moveXY(tc, x, y, x+1, y+1)
 		}
 
 		//fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
@@ -661,7 +683,7 @@ func findPath(ss *sdl.Surface, cX, cY, tX, tY, w, h, r int32) bool {
 }
 
 // Same as find2Remove but tries to find point on direct line from curr point
-func findAndRemove(ss *sdl.Surface, tco Tco, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
+func findAndRemove(ss *sdl.Surface, tc *Tco, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
 
 	undrawDebug(ss, w, h)
 	found := false
@@ -681,7 +703,7 @@ func findAndRemove(ss *sdl.Surface, tco Tco, currX, currY, w, h, r int32) (bool,
 		x, y := doLine(ss, currX, currY, tX, tY, w, h, r, false, false)
 		if x == tX && y == tY {
 			doLine(ss, currX, currY, tX, tY, w, h, r, false, true)
-            moveXY(tco, currX, currY, tX, tY)
+			moveXY(tc, currX, currY, tX, tY)
 			return true, true, tX, tY
 		}
 		if tX%4 == 0 && tY%4 == 0 {
@@ -690,10 +712,10 @@ func findAndRemove(ss *sdl.Surface, tco Tco, currX, currY, w, h, r int32) (bool,
 			ss.Flip()
 		}
 	}
-	fmt.Printf("findAndRemove - no straight line\n")
+	//fmt.Printf("findAndRemove - no straight line\n")
 
 	if found {
-		if findPath(ss, currX, currY, firstTx, firstTy, w, h, r) {
+		if findPath(ss, tc, currX, currY, firstTx, firstTy, w, h, r) {
 			return true, true, firstTx, firstTy
 		}
 	}
@@ -703,14 +725,15 @@ func findAndRemove(ss *sdl.Surface, tco Tco, currX, currY, w, h, r int32) (bool,
 
 func main() {
 
-	var r int32 = 12
+	var r int32 = 11
 
 	img, w, h := pngLoad("case1.png") // image
 	ss := sdlInit(w, h)               // sdl surface
 	sdlFill(ss, w, h, ColMaterial)    // we have all material in the begining then we remove the parts so that just model is left
 	drawModel(img, ss, w, h)          // draw the model with green so that we see if we are removing correct parts
 
-    tco := Tco { 0, 0, 0, os.Stdout }
+	tco := Tco{0, 0, 0, 0, 0, 0, os.Stdout}
+	tc := &tco
 	var x, y int32 = 0, 0
 
 	// Start searching point to remove in where is material - this will fastly
@@ -719,10 +742,10 @@ func main() {
 	// remaining parts
 	for {
 
-		found, removed, tX, tY := findAndRemove(ss, tco, x, y, w, h, r)
+		found, removed, tX, tY := findAndRemove(ss, tc, x, y, w, h, r)
 
 		//fmt.Printf("findAndRemove x=%d y=%d tX=%d tY=%d found=%t removed=%t\n",
-		//           x, y, tX, tY, found, removed)
+		//         x, y, tX, tY, found, removed)
 
 		if !found {
 			break // we are done on this level
@@ -752,25 +775,21 @@ func main() {
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
 			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
-				y--
+				x, y = moveXY(tc, x, y, x, y-1)
 			} else if bestDir(countS, countN, countE, countW, countNE, countSE, countSW, countNW) {
-				y++
+				x, y = moveXY(tc, x, y, x, y+1)
 			} else if bestDir(countE, countN, countS, countW, countNE, countSE, countSW, countNW) {
-				x++
+				x, y = moveXY(tc, x, y, x+1, y)
 			} else if bestDir(countW, countN, countE, countS, countNE, countSE, countSW, countNW) {
-				x--
+				x, y = moveXY(tc, x, y, x-1, y)
 			} else if bestDir(countNE, countN, countS, countE, countW, countSE, countSW, countNW) {
-				x++
-				y--
+				x, y = moveXY(tc, x, y, x+1, y-1)
 			} else if bestDir(countSE, countN, countS, countE, countW, countNE, countSW, countNW) {
-				x++
-				y++
+				x, y = moveXY(tc, x, y, x+1, y+1)
 			} else if bestDir(countSW, countN, countS, countE, countW, countNE, countSE, countNW) {
-				x--
-				y++
+				x, y = moveXY(tc, x, y, x-1, y+1)
 			} else if bestDir(countNW, countN, countS, countE, countW, countNE, countSE, countSW) {
-				x--
-				y--
+				x, y = moveXY(tc, x, y, x-1, y-1)
 			} else {
 				//fmt.Printf("no good dir %d %d %d %d %d %d %d %d\n", countN, countS, countE, countW, countNE, countSE, countSW, countNW)
 				break
