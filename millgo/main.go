@@ -251,13 +251,13 @@ func undrawGreen(ss *sdl.Surface, w, h int32) {
 }
 
 // Draw model onto SDL surface
-func drawModel(img image.Image, ss *sdl.Surface, w, h int32) {
+func drawModel(img image.Image, ss *sdl.Surface, offX, offY, w, h int32) {
 
 	var x, y int32
 	for y = 0; y < h; y++ {
 		for x = 0; x < w; x++ {
 			if pngIsMaterial(x, y, img) {
-				sdlSet(x, y, ColModel, ss)
+				sdlSet(x+offX, y+offY, ColModel, ss)
 			}
 		}
 	}
@@ -763,9 +763,9 @@ func computeTrajectory(pngFile string) {
 	var r int32 = 16 // the case is designed to be milled with 4mm driller, but i have just 3.2mm
 
 	img, w, h := pngLoad(pngFile)  // image
-	ss := sdlInit(w, h)            // sdl surface
+	ss := sdlInit(w+2*r, h+2*r)    // sdl surface
 	sdlFill(ss, w, h, ColMaterial) // we have all material in the begining then we remove the parts so that just model is left
-	drawModel(img, ss, w, h)       // draw the model with green so that we see if we are removing correct parts
+	drawModel(img, ss, r, r, w, h) // draw the model with green so that we see if we are removing correct parts
 
 	tco := Tco{0, 0, 0, 0, 0, 0, os.Stderr}
 	tc := &tco
