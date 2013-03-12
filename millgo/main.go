@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"unsafe"
+    "io/ioutil" 
 )
 
 func abs(value int) int {
@@ -880,7 +881,73 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
     fmt.Printf("done!\n")
 }
 
-func drawTrajectory(txtFile string) {
+func drawTrajectory(txtFile string, r int32) {
+    
+    file, err := os.Open(txtFile)
+    if err != nil {
+        panic(err)
+    }
+    defer file.Close()
+
+    w, h := int32(1024), int32(768)
+    ss := sdlInit(w, h) // sdl surface - with radius+1 border
+    sdlFill(ss, w, h, ColMaterial)      // we have all material in the begining then we remove the parts so that just model is left
+    
+    content, err := ioutil.ReadFile(txtFile)
+    if err != nil {
+        panic(err)
+    }
+    lines := strings.Split(string(content), "\n")
+
+    
+    x, y, z := int32(0), int32(0), int32(0)
+    for i := 0; i < len(lines); i++ {
+        line := lines[i] + "\n"
+        fmt.Printf("%d) %s\n", i, line)
+        var arg int32 = 0
+        var cmd byte = '_'
+        var axis int = 0
+        pos := []int32 { x, y, z }
+        tar := []int32 { x, y, z }
+        
+        for j := 0; j < len(line); j++ {
+            var c uint8 = line[j]
+            switch
+            {
+                case '0' <= c && c <= '9':
+                    arg = arg * 10 + int32(c - '0')
+                default:
+                    arg = 0
+                    cmd = c
+                case c == ' ' || c == '\n':
+                    fmt.Printf("cmd=%c arg=%d\n", cmd, arg)
+                    //fmt.Scanln()
+                    switch cmd {
+                        case 'a':
+                            axis = int(arg)
+                        case 'p':
+                            pos[axis] = arg
+                        case 't':
+                            tar[axis] = arg
+                        case 'm':
+                            tX, tY := x + (109 * (tar[0] - pos[0])) / 1250, y + (109 * (tar[1] - pos[1])) / 1250
+                            
+                            fmt.Printf("tX=%d tY=%d\n", tX, tY)
+                            fmt.Scanln()
+                            
+                            if inRect(x, y, w, h) && inRect(tX, tY, w, h) {
+                                drawLine(ss, x, y, tX, tY)
+                                doLine(ss, x, y, tX, tY, w, h, r, false, true)
+                                ss.Flip()
+                            }
+                            x,y = tX, tY
+                            pos[0], pos[1], pos[2] = x, y, z
+                            tar[0], tar[1], tar[2] = x, y, z
+                    }
+            }
+        }
+    }
+    fmt.Scanln()
 }
 
 func usage() {
@@ -905,7 +972,7 @@ func main() {
 		if strings.HasSuffix(filename, ".png") {
 			computeTrajectory(filename, tc, int32(i), r)
 		} else if strings.HasSuffix(filename, ".txt") {
-			drawTrajectory(filename)
+			drawTrajectory(filename, r)
 		} else {
 			usage()
 		}
