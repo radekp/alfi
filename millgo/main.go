@@ -91,7 +91,7 @@ func moveXySimple(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
 	return bX, bY
 }
 
-func moveXY(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
+func moveXy(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
 
 	// Aggregate move
 	x1, y1 := aX-t.pX, aY-t.pY
@@ -103,6 +103,39 @@ func moveXY(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
 
 	moveXySimple(t, t.pX, t.pY, aX, aY)
 	return moveXySimple(t, aX, aY, bX, bY)
+}
+
+// Move z up or down in 0.5mm steps
+func moveZ(t *Tco, z int32) {
+    
+    // Always flush XY moves
+    if(t.cmdLen > 0) {
+        fmt.Fprint(t.cmd, "\n")
+        t.cmdLen = 0
+    }
+    
+    fmt.Fprintf(t.cmd, "s8000 d4000\n")     // slow speed, motor on z axis is from old printer and must move slowly
+    
+    for z > 0 {
+        
+        fmt.Fprintf(t.cmd, "a2 p0 t437\n")       // move 0.5mm down
+        fmt.Fprintf(t.cmd, "a0 p0 t24\n")        // compensate x drift
+
+        fmt.Fprintf(t.cmd, "a2 p437 t309\n")     // move up & down so that the gear does not slip ;-)
+        fmt.Fprintf(t.cmd, "a2 p309 t437\n")
+
+        //newDriftX += 24;
+        z--;
+    }
+    for z < 0 {
+        fmt.Fprintf(t.cmd, "a0 p24 t0\n")       // compensate x drift and move up
+        fmt.Fprintf(t.cmd, "a2 p437 t0\n")      // move 0.5mm up
+        
+        //newDriftX -= 24;
+        z++;
+    }
+
+    fmt.Fprintf(t.cmd, "s4000 d3000\n");    // restore speed
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -691,21 +724,21 @@ func findPath(ss *sdl.Surface, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 
 		dir, _ := bestDist(dist[x][y])
 		if dir == dir_N {
-			x, y = moveXY(tc, x, y, x, y-1)
+			x, y = moveXy(tc, x, y, x, y-1)
 		} else if dir == dir_S {
-			x, y = moveXY(tc, x, y, x, y+1)
+			x, y = moveXy(tc, x, y, x, y+1)
 		} else if dir == dir_E {
-			x, y = moveXY(tc, x, y, x+1, y)
+			x, y = moveXy(tc, x, y, x+1, y)
 		} else if dir == dir_W {
-			x, y = moveXY(tc, x, y, x-1, y)
+			x, y = moveXy(tc, x, y, x-1, y)
 		} else if dir == dir_NW {
-			x, y = moveXY(tc, x, y, x-1, y-1)
+			x, y = moveXy(tc, x, y, x-1, y-1)
 		} else if dir == dir_NE {
-			x, y = moveXY(tc, x, y, x+1, y-1)
+			x, y = moveXy(tc, x, y, x+1, y-1)
 		} else if dir == dir_SW {
-			x, y = moveXY(tc, x, y, x-1, y+1)
+			x, y = moveXy(tc, x, y, x-1, y+1)
 		} else if dir == dir_SE {
-			x, y = moveXY(tc, x, y, x+1, y+1)
+			x, y = moveXy(tc, x, y, x+1, y+1)
 		}
 
 		//fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
@@ -738,7 +771,7 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, currX, currY, w, h, r int32) (bool,
 		x, y := doLine(ss, currX, currY, tX, tY, w, h, r, false, false)
 		if x == tX && y == tY {
 			doLine(ss, currX, currY, tX, tY, w, h, r, false, true)
-			moveXY(tc, currX, currY, tX, tY)
+			moveXy(tc, currX, currY, tX, tY)
 			return true, true, tX, tY
 		}
 		if tX%4 == 0 && tY%4 == 0 {
@@ -758,9 +791,9 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, currX, currY, w, h, r int32) (bool,
 	return found, false, firstTx, firstTy
 }
 
-func computeTrajectory(pngFile string) {
-
-	var r int32 = 16 // the case is designed to be milled with 4mm driller, but i have just 3.2mm
+// Compute milling trajectory, before exit the position is always returned to
+// point 0,0
+func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 
 	img, w, h := pngLoad(pngFile)       // image
 	ss := sdlInit(w+2*(r+1), h+2*(r+1)) // sdl surface - with radius+1 border
@@ -768,10 +801,10 @@ func computeTrajectory(pngFile string) {
 	drawModel(img, ss, r+1, r+1, w, h)  // draw the model with green so that we see if we are removing correct parts
 	w, h = w+2*(r+1), h+2*(r+1)
 
-	tco := Tco{0, 0, 0, 0, 0, 0, os.Stderr}
-	tc := &tco
 	var x, y int32 = 0, 0
 
+	moveZ(tc, z)
+	
 	// Start searching point to remove in where is material - this will fastly
 	// remove most of the material. Then we switch to visited mode - this will
 	// search in find2Remove also in removed material and will remove the small
@@ -788,7 +821,10 @@ func computeTrajectory(pngFile string) {
 		}
 
 		if !removed {
-			fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
+            fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
+            moveZ(tc, -z)
+            x, y = moveXy(tc, x, y, tX, tY)
+            moveZ(tc, z)
 			//fmt.Scanln()
 		}
 
@@ -811,21 +847,21 @@ func computeTrajectory(pngFile string) {
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
 			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
-				x, y = moveXY(tc, x, y, x, y-1)
+				x, y = moveXy(tc, x, y, x, y-1)
 			} else if bestDir(countS, countN, countE, countW, countNE, countSE, countSW, countNW) {
-				x, y = moveXY(tc, x, y, x, y+1)
+				x, y = moveXy(tc, x, y, x, y+1)
 			} else if bestDir(countE, countN, countS, countW, countNE, countSE, countSW, countNW) {
-				x, y = moveXY(tc, x, y, x+1, y)
+				x, y = moveXy(tc, x, y, x+1, y)
 			} else if bestDir(countW, countN, countE, countS, countNE, countSE, countSW, countNW) {
-				x, y = moveXY(tc, x, y, x-1, y)
+				x, y = moveXy(tc, x, y, x-1, y)
 			} else if bestDir(countNE, countN, countS, countE, countW, countSE, countSW, countNW) {
-				x, y = moveXY(tc, x, y, x+1, y-1)
+				x, y = moveXy(tc, x, y, x+1, y-1)
 			} else if bestDir(countSE, countN, countS, countE, countW, countNE, countSW, countNW) {
-				x, y = moveXY(tc, x, y, x+1, y+1)
+				x, y = moveXy(tc, x, y, x+1, y+1)
 			} else if bestDir(countSW, countN, countS, countE, countW, countNE, countSE, countNW) {
-				x, y = moveXY(tc, x, y, x-1, y+1)
+				x, y = moveXy(tc, x, y, x-1, y+1)
 			} else if bestDir(countNW, countN, countS, countE, countW, countNE, countSE, countSW) {
-				x, y = moveXY(tc, x, y, x-1, y-1)
+				x, y = moveXy(tc, x, y, x-1, y-1)
 			} else {
 				//fmt.Printf("no good dir %d %d %d %d %d %d %d %d\n", countN, countS, countE, countW, countNE, countSE, countSW, countNW)
 				break
@@ -836,12 +872,10 @@ func computeTrajectory(pngFile string) {
 		}
 	}
 
-	fmt.Printf("done!\n")
-
-	for true {
-		ss.Flip()
-		fmt.Scanln()
-	}
+    moveZ(tc, -z)
+    x, y = moveXy(tc, x, y, 0, 0)
+    
+    fmt.Printf("done!\n")
 }
 
 func drawTrajectory(txtFile string) {
@@ -859,11 +893,15 @@ func main() {
 		return
 	}
 
+    var r int32 = 16 // the case is designed to be milled with 4mm driller, but i have just 3.2mm
+    tco := Tco{0, 0, 0, 0, 0, 0, os.Stderr}
+    tc := &tco
+
 	for i := 1; i < len(os.Args); i++ {
 
 		filename := os.Args[i]
 		if strings.HasSuffix(filename, ".png") {
-			computeTrajectory(filename)
+			computeTrajectory(filename, tc, int32(i*2), r)
 		} else if strings.HasSuffix(filename, ".txt") {
 			drawTrajectory(filename)
 		} else {
