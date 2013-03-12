@@ -432,6 +432,27 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 	return count
 }
 
+// Like removeCount() but add some point to favourize points close to model
+func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
+
+	res := removeCount(ss, w, h, cx, cy, r)
+	if res < 0 {
+		return res
+	}
+
+	for x, y, okR := inRadiusBegin(cx, cy, r+1, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r+1, w, h) {
+		if inRadius(x, y, cx, cy, r) {
+			continue // skip until just the circle outline
+		}
+		val := sdlGet(x, y, ss)
+		if (val & ColModel) != 0 { // nearby to to model
+			res *= 2
+		}
+	}
+
+	return res
+}
+
 // Line from x,y to target tX,tY. Moves until model part is not removed
 // or target is reached. Returns new coordinates
 func doLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32, draw, rmMaterial bool) (int32, int32) {
@@ -491,27 +512,6 @@ func doLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32, draw, rmMaterial bool)
 
 func drawLine(ss *sdl.Surface, x, y, tX, tY int32) {
 	doLine(ss, x, y, tX, tY, -1, -1, 0, true, false)
-}
-
-// Like removeCount() but add some point to favourize points close to model
-func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
-
-	res := removeCount(ss, w, h, cx, cy, r)
-	if res < 0 {
-		return res
-	}
-
-	for x, y, okR := inRadiusBegin(cx, cy, r+1, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r+1, w, h) {
-		if inRadius(x, y, cx, cy, r) {
-			continue // skip until just the circle outline
-		}
-		val := sdlGet(x, y, ss)
-		if (val & ColModel) != 0 { // nearby to to model
-			res *= 2
-		}
-	}
-
-	return res
 }
 
 // Is count (in given dir) best?
@@ -762,10 +762,11 @@ func computeTrajectory(pngFile string) {
 
 	var r int32 = 16 // the case is designed to be milled with 4mm driller, but i have just 3.2mm
 
-	img, w, h := pngLoad(pngFile)  // image
-	ss := sdlInit(w+2*r, h+2*r)    // sdl surface
-	sdlFill(ss, w, h, ColMaterial) // we have all material in the begining then we remove the parts so that just model is left
-	drawModel(img, ss, r, r, w, h) // draw the model with green so that we see if we are removing correct parts
+	img, w, h := pngLoad(pngFile)       // image
+	ss := sdlInit(w+2*(r+1), h+2*(r+1)) // sdl surface - with radius+1 border
+	sdlFill(ss, w, h, ColMaterial)      // we have all material in the begining then we remove the parts so that just model is left
+	drawModel(img, ss, r+1, r+1, w, h)  // draw the model with green so that we see if we are removing correct parts
+	w, h = w+2*(r+1), h+2*(r+1)
 
 	tco := Tco{0, 0, 0, 0, 0, 0, os.Stderr}
 	tc := &tco
