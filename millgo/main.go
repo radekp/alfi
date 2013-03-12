@@ -48,13 +48,15 @@ type Tco struct {
 	cmd    io.Writer // output of commands for arduio driver
 }
 
+// Move stepper motor from A to B (in pixel coordinates, 1pixel=0.1mm)
 func moveXySimple(t *Tco, aX, aY, bX, bY int32) (int32, int32) {
 
 	if aX != t.pX || aY != t.pY {
 		panic(fmt.Sprintf("unexpected move t.pX=%d t.pY=%d aX=%d aY=%d", t.pX, t.pY, aX, aY))
 	}
 
-	newMx, newMy := bX*10, bY*10
+	// Stepper motor steps: 5000 steps = 43.6 mm
+	newMx, newMy := (1250 * bX) / 109, (1250 * bY ) / 109           //  //newMx, newMy := (5000 * bX) / 436, (5000 * bY ) / 436
 
 	if newMx == t.mX && newMy == t.mY {
 		return bX, bY
