@@ -901,7 +901,7 @@ func main() {
 
 		filename := os.Args[i]
 		if strings.HasSuffix(filename, ".png") {
-			computeTrajectory(filename, tc, int32(i*2), r)
+			computeTrajectory(filename, tc, int32(i), r)
 		} else if strings.HasSuffix(filename, ".txt") {
 			drawTrajectory(filename)
 		} else {
