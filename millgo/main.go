@@ -120,18 +120,18 @@ func moveZ(t *Tco, z int32) {
     
     for z > 0 {
         
-        fmt.Fprintf(t.cmd, "a2 p0 t437\n")       // move 0.5mm down
-        fmt.Fprintf(t.cmd, "a0 p0 t24\n")        // compensate x drift
+        fmt.Fprintf(t.cmd, "a2 p0 t437 m\n")       // move 0.5mm down
+        fmt.Fprintf(t.cmd, "a0 p0 t24 m\n")        // compensate x drift
 
-        fmt.Fprintf(t.cmd, "a2 p437 t309\n")     // move up & down so that the gear does not slip ;-)
-        fmt.Fprintf(t.cmd, "a2 p309 t437\n")
+        fmt.Fprintf(t.cmd, "a2 p437 t309 m\n")     // move up & down so that the gear does not slip ;-)
+        fmt.Fprintf(t.cmd, "a2 p309 t437 m\n")
 
         //newDriftX += 24;
         z--;
     }
     for z < 0 {
-        fmt.Fprintf(t.cmd, "a0 p24 t0\n")       // compensate x drift and move up
-        fmt.Fprintf(t.cmd, "a2 p437 t0\n")      // move 0.5mm up
+        fmt.Fprintf(t.cmd, "a0 p24 t0 m\n")       // compensate x drift and move up
+        fmt.Fprintf(t.cmd, "a2 p437 t0 m\n")      // move 0.5mm up
         
         //newDriftX -= 24;
         z++;
