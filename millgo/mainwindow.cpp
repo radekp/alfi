@@ -129,96 +129,72 @@ void setPixel(uchar * bits, int x, int y, uchar val)
 }
 
 
-static void drawLine(uchar * bits, int x0, int y0, int x1, int y1, int color)
-{
-    int dx = abs(x1 - x0);
-    int dy = abs(y1 - y0);
-    int sx, sy;
-    if (x0 < x1) {
-        sx = 1;
-    } else {
-        sx = -1;
-    }
-    if (y0 < y1) {
-        sy = 1;
-    } else {
-        sy = -1;
-    }
-    int err = dx - dy;
-    int e2;
+//static void drawLine(uchar * bits, int x0, int y0, int x1, int y1, int color)
+//{
+//    int dx = abs(x1 - x0);
+//    int dy = abs(y1 - y0);
+//    int sx, sy;
+//    if (x0 < x1) {
+//        sx = 1;
+//    } else {
+//        sx = -1;
+//    }
+//    if (y0 < y1) {
+//        sy = 1;
+//    } else {
+//        sy = -1;
+//    }
+//    int err = dx - dy;
+//    int e2;
 
-    for (;;) {
-        setPixel(bits, x0, y0, color);
-        if (x0 == x1 && y0 == y1) {
-            break;
-        }
-        e2 = 2 * err;
-        if (e2 > -dy) {
-            err = err - dy;
-            x0 = x0 + sx;
-        }
-        if (e2 < dx) {
-            err = err + dx;
-            y0 = y0 + sy;
-        }
-    }
-}
+//    for (;;) {
+//        setPixel(bits, x0, y0, color);
+//        if (x0 == x1 && y0 == y1) {
+//            break;
+//        }
+//        e2 = 2 * err;
+//        if (e2 > -dy) {
+//            err = err - dy;
+//            x0 = x0 + sx;
+//        }
+//        if (e2 < dx) {
+//            err = err + dx;
+//            y0 = y0 + sy;
+//        }
+//    }
+//}
 
 //
 // Milling machine simulator
 //
-#define MAX_CMDS 128
 
-long cx;
-long tx;
-long cy;
-long ty;
-long cz;
-long tz;
+#define LOW 0
+#define HIGH 1
+#define A0 0
+#define A1 1
+#define A2 2
+#define OUTPUT 0
 
-int axis;                       // selected axis number
-int sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
-int tdelay;                     // target deleay between steps (smaller number is higher speed)
-int delayStep;                  // with this step is delay increased/decreased
-long delayX;                     // current delay on x
-long delayY;                     // current delay on y
-long delayZ;                     // current delay on z
-
-char cmd;                       // current command (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion, q=queue start, e=execute queue)
-long arg;                        // argument for current commands
-
-char cmds[MAX_CMDS];            // queued commands
-long args[MAX_CMDS];             // arguments for queued commands
-int cmdIndex;
-int cmdCount;
-int queueId;
-
-char b;
-char buf[9];
-int bufPos;
-int limit;                      // last value of limit switch
-
-int lastAxis;
-int lastAxis2;
-
-int machineX = 0;
-int machineY = 0;
-int machineZ = 0;
-
-char *machineCmd;               // equal to command sent to arduino over serial
-int machineCmdIndex;
-
-class DummySerial
+class ArduinoSimSerial
 {
 public:
-    DummySerial()
-    {
-    }
-    ~DummySerial()
-    {
-    }
+    QString cmd;
+    int pos;
 
-public:
+    ArduinoSimSerial()
+    {
+    }
+    ~ArduinoSimSerial()
+    {
+    }
+    void load(QString cmd)
+    {
+        this->cmd = cmd;
+        pos = 0;
+    }
+    void begin(int)
+    {
+    };
     void print(const char *)
     {
     };
@@ -228,265 +204,123 @@ public:
     void println(int)
     {
     };
+    void println(const char *)
+    {
+    };
     int available()
     {
-        machineCmd[machineCmdIndex] != 0;
+        return pos < cmd.length();
     };
     char read()
     {
-        machineCmd[machineCmdIndex++];
+        return cmd.at(pos++).toAscii();
     };
     void write(char)
     {
     };
 };
+ArduinoSimSerial Serial;
 
-DummySerial Serial;
+int gpioVal;
+int machineX = 0;
+int machineY = 0;
+int machineZ = 0;
 
-static int machineSerialAvail()
+int newMachineX = 0;
+int newMachineY = 0;
+int newMachineZ = 0;
+
+
+void delayMicroseconds(int)
 {
-    return machineCmd[machineCmdIndex] != 0;
+    machineX = newMachineX;
+    machineY = newMachineY;
+    machineZ = newMachineZ;
+
+    //qDebug() << " move " << machineX << "," << machineY << "," << machineZ;
 }
 
-static char machineSerialRead()
+int analogRead(int)
 {
-    return machineCmd[machineCmdIndex++];
+    return 0;
 }
 
-// One step to x
-void moveX()
+//     A
+//     + B
+//
+//
+//         7 0 1
+// dirs:   6   2
+//         5 4 3
+//
+int machineMove(int coord, int newGpio, int gpio0, int gpio2, int gpio4, int gpio6)
 {
-    if(cx > machineX)
-        machineX++;
-    else if(cx < machineX)
-        machineX--;
+    int oldDir = coord % 8;
+
+    int is0 = newGpio & (1 << gpio0);
+    int is2 = newGpio & (1 << gpio2);
+    int is4 = newGpio & (1 << gpio4);
+    int is6 = newGpio & (1 << gpio6);
+
+    int newDir;
+    if(is0 && is2)       newDir = 1;
+    else if(is2 && is4)  newDir = 3;
+    else if(is4 && is6)  newDir = 5;
+    else if(is6 && is0)  newDir = 7;
+    else if(is0)         newDir = 0;
+    else if(is2)         newDir = 2;
+    else if(is4)         newDir = 4;
+    else if(is6)         newDir = 6;
+    else return coord;              // all gpio powered off
+
+    if(newDir == oldDir)
+        return coord;
+
+    int delta = newDir - oldDir;
+    if(delta == 7)
+        delta = -1;
+    else if(delta == -7)
+        delta = 1;
+    else if(delta == 6)
+        delta = -2;
+    else if(delta == -6)
+        delta = 2;
+
+    return coord + delta;
 }
 
-// One step to y
-void moveY()
+void digitalWrite(int gpio, int value)
 {
-    if(cy > machineY)
-        machineY++;
-    else if(cy < machineY)
-        machineY--;
-}
+    int oldVal = gpioVal;
 
-// One step to z
-void moveZ()
-{
-    if(cy > machineY)
-        machineZ++;
-    else if(cy < machineY)
-        machineZ--;
-}
+    if(value)
+        gpioVal |= (1 << gpio);
+    else
+        gpioVal &= ~(1 << gpio);
 
-void xOff()
-{
-}
-
-void yOff()
-{
-}
-
-void zOff()
-{
-}
-
-// draw line using Bresenham's line algorithm
-void drawLine(long x0, long y0, long x1, long y1)
-{
-    long dx = abs(x1 - x0);
-    long dy = abs(y1 - y0);
-    long sx, sy;
-    if (x0 < x1) {
-        sx = 1;
-    } else {
-        sx = -1;
-    }
-    if (y0 < y1) {
-        sy = 1;
-    } else {
-        sy = -1;
-    }
-    long err = dx - dy;
-    long e2;
-
-    for (;;) {
-        // move to x0,y0
-        if (cx != x0) {
-            cx = x0;
-            moveX();
-        }
-        if (cy != y0) {
-            cy = y0;
-            moveY();
-        }
-
-        if (x0 == x1 && y0 == y1) {
-            break;
-        }
-        e2 = 2 * err;
-        if (e2 > -dy) {
-            err = err - dy;
-            x0 = x0 + sx;
-        }
-        if (e2 < dx) {
-            err = err + dx;
-            y0 = y0 + sy;
-        }
-    }
-}
-
-void setup()
-{
-    cmd = 0;
-    cmdIndex = -1;
-    cmdCount = -1;
-    bufPos = -1;
-    axis = 0;
-    cx = cy = cz = tx = ty = tz = 0;
-    lastAxis = lastAxis2 = -1;
-}
-
-void loop()
-{
-    if (cmd == 0 || bufPos >= 0) {
-        // read next command from queue
-        if (cmdIndex >= 0) {
-            if (cmdIndex >= cmdCount) {
-                Serial.print("qdone");
-                Serial.print(queueId);
-                cmdIndex = -1;  // queue executed
-                cmdCount = -1;
-                return;
-            }
-            cmd = cmds[cmdIndex];
-            arg = args[cmdIndex];
-            cmdIndex++;
-//            Serial.print(cmd);
-//            Serial.print(" ");
-//            Serial.print(arg);
-            return;
-        }
-        // if not moving, stop current on all motor wirings and reset delays
-        if (cmd == 0) {
-            xOff();
-            yOff();
-            zOff();
-
-            delayX = delayY = delayZ = sdelay;
-            lastAxis = lastAxis2 = -1;
-        }
-        // check if data has been sent from the computer:
-        if (!Serial.available()) {
-            return;
-        }
-        // read command
-        if (cmd == 0) {
-            cmd = Serial.read();
-            Serial.write(cmd);
-            arg = 0x7fffffff;
-            bufPos = 0;
-            return;
-        }
-        // read integer argument
-        b = Serial.read();
-        Serial.write(b);
-
-        if (b != ' ') {
-            buf[bufPos] = b;
-            bufPos++;
-            return;
-        }
-        buf[bufPos] = '\0';
-        arg = atol(buf);
-        bufPos = -1;
-
-//        Serial.print("command ");
-//        Serial.print(cmd);
-//        Serial.print(" ");
-//        Serial.println(arg);
-
-        if (cmd == 'q') {
-            cmdCount = 0;       // start command queue
-            cmd = 0;
-            return;
-        }
-        if (cmd == 'e') {
-            queueId = arg;
-            cmdIndex = 0;       // execute command queue
-            cmd = 0;
-            return;
-        }
-        if (cmdCount >= 0) {
-            cmds[cmdCount] = cmd;
-            args[cmdCount] = arg;
-            cmdCount++;
-            cmd = 0;
-            return;
-        }
-    }
-    // motion handling
-    if (cmd == 'M') {
-        if (cx != tx || cy != ty) {
-            drawLine(cx, cy, tx, ty);
-        }
-        while (cz < tz) {
-            cz++;
-            moveZ();
-            zOff();
-        }
-        while (cz > tz) {
-            cz--;
-            moveZ();
-            zOff();
-        }
-        if (cmdIndex < 0) {
-            Serial.print("done");
-            Serial.print(arg);
-        }
-        cmd = 0;                // we are done, read next command from serial/queue
+    if(oldVal == gpioVal)
         return;
-    }
 
-    if (cmd == 'm') {
-        if (cmdCount >= 0 && cmdIndex < 0) {    // dont execute if queueing
-            return;
-        }
-        cmd = 'M';
-        limit = -1;
-        return;
+    QString str;
+    for(int i = 13; i >= 0; i--) {
+        if(gpioVal & (1 << i))
+            str+="1";
+        else
+            str+="0";
     }
-    if (cmd == 'a') {
-        axis = arg;
-    } else if (cmd == 'p') {
-        if (axis == 0) {
-            cx = arg;
-        } else if (axis == 1) {
-            cy = arg;
-        } else {
-            cz = arg;
-        }
-    } else if (cmd == 't') {
-        if (axis == 0) {
-            tx = arg;
-        } else if (axis == 1) {
-            ty = arg;
-        } else {
-            tz = arg;
-        }
-    } else if (cmd == 's') {
-        sdelay = arg;
-    } else if (cmd == 'd') {
-        tdelay = arg;
-    } else if (cmd == 'z') {
-        delayStep = arg;
-    } else {
-        Serial.print("error: unknown command ");
-        Serial.println(cmd);
+    qDebug() << "gpioVal " << str;
+
+    if(gpio >= 2 && gpio <= 5)      // x axis, gpios 3 2 4 5
+    {
+        newMachineX = machineMove(machineX, gpioVal, 3, 2, 4, 5);
     }
-    cmd = 0;
 }
+
+void pinMode(int, int)
+{
+}
+
+#include "../alfi_arduino/alfi_arduino.ino"
 
 void MainWindow::paintEvent(QPaintEvent *)
 {
@@ -504,14 +338,6 @@ void MainWindow::paintEvent(QPaintEvent *)
 // Send cmd queue to arduino. Returns after arduino received it
 void MainWindow::writeCmdQueue()
 {
-    update();
-    QApplication::processEvents();
-
-    //drawMoves(prnBits, moves, movesCount, width(), height(), curZ);
-
-    //cmdQueue.clear();
-    //return;
-
     QString cmd = "q";
     for (int i = 0; i < cmdQueue.count(); i++) {
         cmd += " ";
@@ -519,6 +345,17 @@ void MainWindow::writeCmdQueue()
     }
     cmd += " e" + QString::number(++moveNo) + " ";
     cmdQueue.clear();
+
+    // Execute on milling machine simulator
+    Serial.load(cmd);
+    int extraLoops = 100;
+    while(Serial.available() || --extraLoops > 0)
+    {
+        loop();
+        update();
+        QApplication::processEvents();
+    }
+    return;
 
     qDebug() << "cmd=" << cmd;
     QByteArray cmdBytes = cmd.toAscii();
@@ -551,6 +388,8 @@ void MainWindow::writeCmdQueue()
 // Wait until arduino finishes all command sent
 void MainWindow::waitCmdDone()
 {
+    return;
+
     QString expect = "qdone" + QString::number(moveNo);
     qDebug() << "expect=" << expect;
     for (;;) {
@@ -634,7 +473,8 @@ void MainWindow::readSerial()
 
 void MainWindow::on_bSendSerial_clicked()
 {
-    port.write(ui->tbSendSerial->text().toAscii());
+    //port.write(ui->tbSendSerial->text().toAscii());
+    sendCmd(ui->tbSendSerial->text());
 }
 
 void MainWindow::on_bXMinus_clicked()
