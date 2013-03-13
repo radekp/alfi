@@ -53,7 +53,7 @@ type Tco struct {
 func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 
 	// Stepper motor steps: 5000 steps = 43.6 mm
-	//newMx, newMy := (1250 * bX) / 109, (1250 * bY ) / 109           //  //newMx, newMy := (5000 * bX) / 436, (5000 * bY ) / 436
+	//newMx, newMy := (1250 * x) / 109, (1250 * y ) / 109           //  //newMx, newMy := (5000 * bX) / 436, (5000 * bY ) / 436
 	newMx, newMy := x, y
 
 	if newMx == t.mX && newMy == t.mY {

@@ -121,39 +121,39 @@ void moveX()
 
     // 3 2 4 5
     switch (r) {
-    case 7:
+    case 0:
         digitalWrite(2, LOW);
         digitalWrite(5, LOW);
         digitalWrite(3, HIGH);
         break;                  // 3
-    case 6:
+    case 1:
         digitalWrite(2, HIGH);
         digitalWrite(3, HIGH);
         break;                  // 32
-    case 5:
+    case 2:
         digitalWrite(3, LOW);
         digitalWrite(4, LOW);
         digitalWrite(2, HIGH);
         break;                  // 2
-    case 4:
+    case 3:
         digitalWrite(2, HIGH);
         digitalWrite(4, HIGH);
         break;                  // 24
-    case 3:
+    case 4:
         digitalWrite(2, LOW);
         digitalWrite(5, LOW);
         digitalWrite(4, HIGH);
         break;                  // 4
-    case 2:
+    case 5:
         digitalWrite(4, HIGH);
         digitalWrite(5, HIGH);
         break;                  // 45
-    case 1:
+    case 6:
         digitalWrite(4, LOW);
         digitalWrite(3, LOW);
         digitalWrite(5, HIGH);
         break;                  // 5
-    case 0:
+    case 7:
         digitalWrite(5, HIGH);
         digitalWrite(3, HIGH);
         break;                  // 53
@@ -168,39 +168,39 @@ void moveY()
 
     // 8 7 9 6
     switch (r) {
-    case 7:
+    case 0:
         digitalWrite(6, LOW);
         digitalWrite(7, LOW);
         digitalWrite(8, HIGH);
         break;                  // 8
-    case 6:
+    case 1:
         digitalWrite(8, HIGH);
         digitalWrite(7, HIGH);
         break;                  // 87
-    case 5:
+    case 2:
         digitalWrite(8, LOW);
         digitalWrite(9, LOW);
         digitalWrite(7, HIGH);
         break;                  // 7
-    case 4:
+    case 3:
         digitalWrite(7, HIGH);
         digitalWrite(9, HIGH);
         break;                  // 79
-    case 3:
+    case 4:
         digitalWrite(7, LOW);
         digitalWrite(6, LOW);
         digitalWrite(9, HIGH);
         break;                  // 9
-    case 2:
+    case 5:
         digitalWrite(9, HIGH);
         digitalWrite(6, HIGH);
         break;                  // 96
-    case 1:
+    case 6:
         digitalWrite(9, LOW);
         digitalWrite(8, LOW);
         digitalWrite(6, HIGH);
         break;                  // 6
-    case 0:
+    case 7:
         digitalWrite(6, HIGH);
         digitalWrite(8, HIGH);
         break;                  // 68

@@ -234,33 +234,6 @@ int newMachineX = 0;
 int newMachineY = 0;
 int newMachineZ = 0;
 
-void delayMicroseconds(int)
-{
-    int w = mainWin->width();
-    int h = mainWin->height();
-
-    drawLine2(prnBits,
-              machineX / 10 + w / 2 + machineZ / 10,
-              machineY / 10 + h / 2 + machineZ / 10,
-              newMachineX / 10 + w / 2 + newMachineZ / 10,
-              newMachineY / 10 + h / 2 + newMachineZ / 10,
-              (newMachineZ % 31) + 1);
-
-    machineX = newMachineX;
-    machineY = newMachineY;
-    machineZ = newMachineZ;
-
-    //setPixel(prnBits, machineX, machineY, 1);
-    //mainWin->update();
-
-    qDebug() << " move " << machineX << "," << machineY << "," << machineZ;
-}
-
-int analogRead(int)
-{
-    return 0;
-}
-
 //     A
 //     + B
 //
@@ -269,7 +242,8 @@ int analogRead(int)
 // dirs:   6   2
 //         5 4 3
 //
-int machineMove(int coord, int newGpio, int gpio0, int gpio2, int gpio4, int gpio6)
+// gpio0 is gpio num in dir 0, gpio2 in dir2 etc..
+int moveByGpio(int coord, int newGpio, int gpio0, int gpio2, int gpio4, int gpio6)
 {
     int oldDir = coord % 8;
 
@@ -305,6 +279,37 @@ int machineMove(int coord, int newGpio, int gpio0, int gpio2, int gpio4, int gpi
     return coord + delta;
 }
 
+void delayMicroseconds(int)
+{
+    newMachineX = moveByGpio(machineX, gpioVal, 3, 2, 4, 5);        // x axis, gpios 3 2 4 5
+    newMachineY = moveByGpio(machineY, gpioVal, 8, 7, 9, 6);        // y axis, gpios 8 7 9 6
+    newMachineZ = moveByGpio(machineZ, gpioVal, 13, 12, 10, 11);    // z axis, gpios 13 12 10 11
+
+    int w = mainWin->width();
+    int h = mainWin->height();
+
+    drawLine2(prnBits,
+              machineX / 100 + w / 2 + machineZ / 100,
+              machineY / 100 + h / 2 + machineZ / 100,
+              newMachineX / 100 + w / 2 + newMachineZ / 10,
+              newMachineY / 100 + h / 2 + newMachineZ / 10,
+              (newMachineZ % 31) + 1);
+
+    machineX = newMachineX;
+    machineY = newMachineY;
+    machineZ = newMachineZ;
+
+    //setPixel(prnBits, machineX, machineY, 1);
+    //mainWin->update();
+
+    qDebug() << " move " << machineX << "," << machineY << "," << machineZ;
+}
+
+int analogRead(int)
+{
+    return 0;
+}
+
 void digitalWrite(int gpio, int value)
 {
     int oldVal = gpioVal;
@@ -325,19 +330,6 @@ void digitalWrite(int gpio, int value)
             str+="0";
     }
     //qDebug() << "gpioVal " << str;
-
-    if(gpio >= 2 && gpio <= 5)      // x axis, gpios 3 2 4 5
-    {
-        newMachineX = machineMove(machineX, gpioVal, 3, 2, 4, 5);
-    }
-    if(gpio >= 6 && gpio <= 9)      // y axis, gpios 8 7 9 6
-    {
-        newMachineY = machineMove(machineY, gpioVal, 8, 7, 9, 6);
-    }
-    if(gpio >= 10 && gpio <= 13)      // z axis, gpios 13 12 10 11
-    {
-        newMachineZ = machineMove(machineZ, gpioVal, 13, 12, 10, 11);
-    }
 }
 
 void pinMode(int, int)
