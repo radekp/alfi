@@ -6,10 +6,10 @@ import (
 	"image"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"unsafe"
-    "io/ioutil" 
 )
 
 func abs(value int) int {
@@ -42,9 +42,9 @@ func max(a, b int32) int32 {
 
 // Trajectory computer and output
 type Tco struct {
-    x, y   int32     // current x, y
-    tx, ty int32     // target for aggregate moves
-    mX, mY int32     // x, y in machine coordinates
+	x, y   int32     // current x, y
+	tx, ty int32     // target for aggregate moves
+	mX, mY int32     // x, y in machine coordinates
 	cmdLen int       // length of unflushed commands
 	cmd    io.Writer // output of commands for arduio driver
 }
@@ -91,61 +91,60 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 	return x, y
 }
 
+// Aggregate move
 func moveXy(t *Tco, x, y int32) (int32, int32) {
 
-    return moveXySimple(t, x, y)
-/*    
-	// Aggregate move
+	//return moveXySimple(t, x, y)
+
 	x1, y1 := t.tx-t.x, t.ty-t.y
-	x2, y2 := x - t.tx, y - t.ty
-	//fmt.Printf("x1=%d y2=%d   x2=%d y1=%d\n", x1, y2, x2, y1)    
-	
+	x2, y2 := x-t.tx, y-t.ty
+
 	if x1*y2 == x2*y1 {
+		t.tx, t.ty = x, y
 		return x, y
 	}
 	
-    return moveXySimple(t, x, y)*/
+	moveXySimple(t, t.tx, t.ty)
+	return moveXySimple(t, x, y)
 }
 
 // Move z up or down in 0.5mm steps
 func moveZ(t *Tco, z int32) {
-    
-    // Finish pending aggregate moves
-    if(t.x != t.tx || t.y != t.ty) {
-        moveXySimple(t, t.tx, t.ty)
-    }
-    
-    // Always flush XY moves
-    if(t.cmdLen > 0) {
-        fmt.Fprint(t.cmd, "\n")
-        t.cmdLen = 0
-    }
-    
-    /*
-    fmt.Fprintf(t.cmd, "s8000 d4000\n")     // slow speed, motor on z axis is from old printer and must move slowly
-    
-    for z > 0 {
-        
-        fmt.Fprintf(t.cmd, "a2 p0 t437 m\n")       // move 0.5mm down
-        fmt.Fprintf(t.cmd, "a0 p0 t24 m\n")        // compensate x drift
 
-        fmt.Fprintf(t.cmd, "a2 p437 t309 m\n")     // move up & down so that the gear does not slip ;-)
-        fmt.Fprintf(t.cmd, "a2 p309 t437 m\n")
+	// Finish pending aggregate moves
+	moveXySimple(t, t.tx, t.ty)
 
-        //newDriftX += 24;
-        z--;
-    }
-    for z < 0 {
-        fmt.Fprintf(t.cmd, "a0 p24 t0 m\n")       // compensate x drift and move up
-        fmt.Fprintf(t.cmd, "a2 p437 t0 m\n")      // move 0.5mm up
-        
-        //newDriftX -= 24;
-        z++;
-    }
+	// Always flush XY moves
+	if t.cmdLen > 0 {
+		fmt.Fprint(t.cmd, "\n")
+		t.cmdLen = 0
+	}
 
-    fmt.Fprintf(t.cmd, "s4000 d3000\n");    // restore speed
-    
-    */
+	/*
+	   fmt.Fprintf(t.cmd, "s8000 d4000\n")     // slow speed, motor on z axis is from old printer and must move slowly
+
+	   for z > 0 {
+
+	       fmt.Fprintf(t.cmd, "a2 p0 t437 m\n")       // move 0.5mm down
+	       fmt.Fprintf(t.cmd, "a0 p0 t24 m\n")        // compensate x drift
+
+	       fmt.Fprintf(t.cmd, "a2 p437 t309 m\n")     // move up & down so that the gear does not slip ;-)
+	       fmt.Fprintf(t.cmd, "a2 p309 t437 m\n")
+
+	       //newDriftX += 24;
+	       z--;
+	   }
+	   for z < 0 {
+	       fmt.Fprintf(t.cmd, "a0 p24 t0 m\n")       // compensate x drift and move up
+	       fmt.Fprintf(t.cmd, "a2 p437 t0 m\n")      // move 0.5mm up
+
+	       //newDriftX -= 24;
+	       z++;
+	   }
+
+	   fmt.Fprintf(t.cmd, "s4000 d3000\n");    // restore speed
+
+	*/
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -814,7 +813,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	var x, y int32 = 0, 0
 
 	moveZ(tc, z)
-	
+
 	// Start searching point to remove in where is material - this will fastly
 	// remove most of the material. Then we switch to visited mode - this will
 	// search in find2Remove also in removed material and will remove the small
@@ -831,10 +830,10 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		}
 
 		if !removed {
-            fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
-            moveZ(tc, -z)
-            x, y = moveXy(tc, tX, tY)
-            moveZ(tc, z)
+			fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
+			moveZ(tc, -z)
+			x, y = moveXy(tc, tX, tY)
+			moveZ(tc, z)
 			//fmt.Scanln()
 		}
 
@@ -882,82 +881,77 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		}
 	}
 
-    moveZ(tc, -z)
-    x, y = moveXy(tc, 0, 0)
-    
-    fmt.Printf("done!\n")
-    for {
-        fmt.Scanln()
-        ss.Flip()
-    }
+	moveZ(tc, -z)
+	x, y = moveXy(tc, 0, 0)
+
+	fmt.Printf("done!\n")
 }
 
 func drawTrajectory(txtFile string, r int32) {
-    
-    file, err := os.Open(txtFile)
-    if err != nil {
-        panic(err)
-    }
-    defer file.Close()
 
-    w, h := int32(1280), int32(1024)
-    ss := sdlInit(w, h) // sdl surface - with radius+1 border
-    sdlFill(ss, w, h, ColMaterial)      // we have all material in the begining then we remove the parts so that just model is left
-    
-    content, err := ioutil.ReadFile(txtFile)
-    if err != nil {
-        panic(err)
-    }
-    lines := strings.Split(string(content), "\n")
+	file, err := os.Open(txtFile)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
 
-    x, y, z := int32(0), int32(0), int32(0)
-    for i := 0; i < len(lines); i++ {
-        line := lines[i] + "\n"
-        fmt.Printf("%d) %s\n", i, line)
-        var arg int32 = 0
-        var cmd byte = '_'
-        var axis int = 0
-        tar := []int32 { x, y, z }
-        
-        for j := 0; j < len(line); j++ {
-            var c uint8 = line[j]
-            switch
-            {
-                case '0' <= c && c <= '9':
-                    arg = arg * 10 + int32(c - '0')
-                default:
-                    arg = 0
-                    cmd = c
-                case c == ' ' || c == '\n':
-                    //fmt.Printf("cmd=%c arg=%d\n", cmd, arg)
-                    //fmt.Scanln()
-                    switch cmd {
-                        case 'a':
-                            axis = int(arg)
-                        case 't':
-                            tar[axis] = arg
-                        case 'm':
-                            //tX, tY := x + (109 * (tar[0] - pos[0])) / 1250, y + (109 * (tar[1] - pos[1])) / 1250
-                            tX, tY := tar[0], tar[1]
-                            
-                            //fmt.Printf("tX=%d tY=%d\n", tX, tY)
-                            //fmt.Scanln()
-                            
-                            if inRect(x, y, w, h) && inRect(tX, tY, w, h) {
-                                drawLine(ss, x, y, tX, tY)
-                                doLine(ss, x, y, tX, tY, w, h, r, false, true)
-                                ss.Flip()
-                            }
-                            x,y = tX, tY
-                            tar[0], tar[1], tar[2] = x, y, z
-                    }
-            }
-        }
-    }
-    for {
-        fmt.Scanln()
-        ss.Flip()
-    }
+	w, h := int32(1280), int32(1024)
+	ss := sdlInit(w, h)            // sdl surface - with radius+1 border
+	sdlFill(ss, w, h, ColMaterial) // we have all material in the begining then we remove the parts so that just model is left
+
+	content, err := ioutil.ReadFile(txtFile)
+	if err != nil {
+		panic(err)
+	}
+	lines := strings.Split(string(content), "\n")
+
+	x, y, z := int32(0), int32(0), int32(0)
+	for i := 0; i < len(lines); i++ {
+		line := lines[i] + "\n"
+		fmt.Printf("%d) %s\n", i, line)
+		var arg int32 = 0
+		var cmd byte = '_'
+		var axis int = 0
+		tar := []int32{x, y, z}
+
+		for j := 0; j < len(line); j++ {
+			var c uint8 = line[j]
+			switch {
+			case '0' <= c && c <= '9':
+				arg = arg*10 + int32(c-'0')
+			default:
+				arg = 0
+				cmd = c
+			case c == ' ' || c == '\n':
+				//fmt.Printf("cmd=%c arg=%d\n", cmd, arg)
+				//fmt.Scanln()
+				switch cmd {
+				case 'a':
+					axis = int(arg)
+				case 't':
+					tar[axis] = arg
+				case 'm':
+					//tX, tY := x + (109 * (tar[0] - pos[0])) / 1250, y + (109 * (tar[1] - pos[1])) / 1250
+					tX, tY := tar[0], tar[1]
+
+					//fmt.Printf("tX=%d tY=%d\n", tX, tY)
+					//fmt.Scanln()
+
+					if inRect(x, y, w, h) && inRect(tX, tY, w, h) {
+						drawLine(ss, x, y, tX, tY)
+						doLine(ss, x, y, tX, tY, w, h, r, false, true)
+						ss.Flip()
+					}
+					x, y = tX, tY
+					tar[0], tar[1], tar[2] = x, y, z
+				}
+			}
+		}
+	}
+	for {
+		fmt.Scanln()
+		ss.Flip()
+	}
 }
 
 func usage() {
@@ -972,9 +966,9 @@ func main() {
 		return
 	}
 
-    var r int32 = 16 // the case is designed to be milled with 4mm driller, but i have just 3.2mm
-    tco := Tco{0, 0, 0, 0, 0, 0, 0, os.Stderr}
-    tc := &tco
+	var r int32 = 16 // the case is designed to be milled with 4mm driller, but i have just 3.2mm
+	tco := Tco{0, 0, 0, 0, 0, 0, 0, os.Stderr}
+	tc := &tco
 
 	for i := 1; i < len(os.Args); i++ {
 
