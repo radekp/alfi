@@ -49,7 +49,6 @@ public:
     Ui::MainWindow *ui;
     QImage img;
     QImage prn;
-    uchar *prnBits;
     QString imgFile;
     QSerialPort port;
     QString serialLog;
