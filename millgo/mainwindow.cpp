@@ -30,6 +30,10 @@
 
 QFile *outFile = NULL;
 
+uchar *prnBits;
+
+MainWindow *mainWin;
+
 void openOutFile(QString name)
 {
     if (outFile) {
@@ -99,6 +103,8 @@ moveNo(0), cmdQueue(), milling(false), movesCount(0), curZ(0)
     }
     MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
     readSerial();
+
+    mainWin = this;
 }
 
 MainWindow::~MainWindow()
@@ -126,34 +132,8 @@ void setPixel(uchar * bits, int x, int y, uchar val)
     getSetPixel(bits, x, y, false, val);
 }
 
-static int getCoord(QString str)
-{
-    QStringList list = str.split('.');
-    int n = list.at(0).toInt() * 1000;
-    if (list.count() == 1) {
-        return n;
-    }
-    QString mStr = list.at(1);
-    int m = mStr.toInt();
-    for (int i = mStr.length();;) {
-        if (i == 3) {
-            if (str.indexOf('-') >= 0) {
-                return n - m;
-            }
-            return n + m;
-        }
-        if (i > 3) {
-            m /= 10;
-            i--;
-        }
-        if (i < 3) {
-            m *= 10;
-            i++;
-        }
-    }
-}
 
-static void drawLine(uchar * bits, int x0, int y0, int x1, int y1, int color)
+static void drawLine2(uchar * bits, int x0, int y0, int x1, int y1, int color)
 {
     int dx = abs(x1 - x0);
     int dy = abs(y1 - y0);
@@ -188,121 +168,194 @@ static void drawLine(uchar * bits, int x0, int y0, int x1, int y1, int color)
     }
 }
 
-// Compute driller path A->B->C->D taking into account driller width.
 //
-//         | D
-//         |
-//  -------+ C
-//  A      B
+// Milling machine simulator
 //
-// Step 1: parallel line to AB shifted by width (same for AD)
-//
-//
-//  E     F
-//  -------        H |   | D
-//                   |   |
-//  -------        G |   | C
-//  A     B
-//
-static void millingPath(qint64 ax, qint64 ay,
-                        qint64 bx, qint64 by,
-                        qint64 r,
-                        qint64 & x0, qint64 & y0, qint64 & x1, qint64 & y1)
+
+#define LOW 0
+#define HIGH 1
+#define A0 0
+#define A1 1
+#define A2 2
+#define OUTPUT 0
+
+class ArduinoSimSerial
 {
-    // orthogonal line r pixels long
-    qint64 w = by - ay;
-    qint64 h = ax - bx;
-    qint64 c = (qint64) sqrt((10000 * 10000 * r * r) / (w * w + h * h));
-    w = (c * w) / 10000;
-    h = (c * h) / 10000;
-    x0 = ax + w;
-    y0 = ay + h;
-    x1 = bx + w;
-    y1 = by + h;
+public:
+    QString cmd;
+    int pos;
+
+    ArduinoSimSerial()
+    {
+    }
+    ~ArduinoSimSerial()
+    {
+    }
+    void load(QString cmd)
+    {
+        this->cmd = cmd;
+        pos = 0;
+    }
+    void begin(int)
+    {
+    };
+    void print(const char *)
+    {
+    };
+    void print(int)
+    {
+    };
+    void println(int)
+    {
+    };
+    void println(const char *)
+    {
+    };
+    int available()
+    {
+        return pos < cmd.length();
+    };
+    char read()
+    {
+        return cmd.at(pos++).toAscii();
+    };
+    void write(char)
+    {
+    };
+};
+ArduinoSimSerial Serial;
+
+int gpioVal;
+int machineX = 0;
+int machineY = 0;
+int machineZ = 0;
+
+int newMachineX = 0;
+int newMachineY = 0;
+int newMachineZ = 0;
+
+void delayMicroseconds(int)
+{
+    int w = mainWin->width();
+    int h = mainWin->height();
+
+    drawLine2(prnBits,
+              machineX / 100 + w / 2 + machineZ,
+              machineY / 100 + h / 2 + machineZ,
+              newMachineX /100 + w / 2 + newMachineZ,
+              newMachineY / 100 + h / 2 + newMachineZ,
+              (newMachineZ % 31) + 1);
+
+    machineX = newMachineX;
+    machineY = newMachineY;
+    machineZ = newMachineZ;
+
+    //setPixel(prnBits, machineX, machineY, 1);
+    //mainWin->update();
+
+    //qDebug() << " move " << machineX << "," << machineY << "," << machineZ;
 }
+
+int analogRead(int)
+{
+    return 0;
+}
+
+//     A
+//     + B
+//
+//
+//         7 0 1
+// dirs:   6   2
+//         5 4 3
+//
+int machineMove(int coord, int newGpio, int gpio0, int gpio2, int gpio4, int gpio6)
+{
+    int oldDir = coord % 8;
+
+    int is0 = newGpio & (1 << gpio0);
+    int is2 = newGpio & (1 << gpio2);
+    int is4 = newGpio & (1 << gpio4);
+    int is6 = newGpio & (1 << gpio6);
+
+    int newDir;
+    if(is0 && is2)       newDir = 1;
+    else if(is2 && is4)  newDir = 3;
+    else if(is4 && is6)  newDir = 5;
+    else if(is6 && is0)  newDir = 7;
+    else if(is0)         newDir = 0;
+    else if(is2)         newDir = 2;
+    else if(is4)         newDir = 4;
+    else if(is6)         newDir = 6;
+    else return coord;              // all gpio powered off
+
+    if(newDir == oldDir)
+        return coord;
+
+    int delta = newDir - oldDir;
+    if(delta == 7)
+        delta = -1;
+    else if(delta == -7)
+        delta = 1;
+    else if(delta == 6)
+        delta = -2;
+    else if(delta == -6)
+        delta = 2;
+
+    return coord + delta;
+}
+
+void digitalWrite(int gpio, int value)
+{
+    int oldVal = gpioVal;
+
+    if(value)
+        gpioVal |= (1 << gpio);
+    else
+        gpioVal &= ~(1 << gpio);
+
+    if(oldVal == gpioVal)
+        return;
+
+    QString str;
+    for(int i = 13; i >= 0; i--) {
+        if(gpioVal & (1 << i))
+            str+="1";
+        else
+            str+="0";
+    }
+    //qDebug() << "gpioVal " << str;
+
+    if(gpio >= 2 && gpio <= 5)      // x axis, gpios 3 2 4 5
+    {
+        newMachineX = machineMove(machineX, gpioVal, 3, 2, 4, 5);
+    }
+    if(gpio >= 6 && gpio <= 9)      // y axis, gpios 8 7 9 6
+    {
+        newMachineY = machineMove(machineY, gpioVal, 8, 7, 9, 6);
+    }
+    if(gpio >= 10 && gpio <= 13)      // z axis, gpios 13 12 10 11
+    {
+        newMachineZ = machineMove(machineZ, gpioVal, 13, 12, 10, 11);
+    }
+}
+
+void pinMode(int, int)
+{
+}
+
+#include "../alfi_arduino/alfi_arduino.ino"
 
 void MainWindow::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.drawImage(0, 0, prn);
     return;
-
-    if (img.isNull()) {
-        return;
-    }
-    p.drawImage(0, 50, img);
-    p.drawImage(0, 100, prn);
 }
 
-static void drawMoves(uchar * bits, int *moves, int movesCount, int width,
-                      int height, int color)
+// Send cmd queue to arduino. Returns after arduino received it
+void MainWindow::writeCmdQueue()
 {
-    memset(bits, 0, PRN_WIDTH * PRN_HEIGHT);
-
-    int minX = 0;
-    int minY = 0;
-    int maxX = 0;
-    int maxY = 0;
-    int curX = 0;
-    int curY = 0;
-
-    for (int i = 0; i < movesCount; i += 3) {
-        int axis = moves[i];
-        int pos = moves[i + 1];
-        int target = moves[i + 2];
-
-        if (axis == 0) {
-            curX += target - pos;
-            minX = (curX < minX ? curX : minX);
-            maxX = (curX > maxX ? curX : maxX);
-        }
-        if (axis == 1) {
-            curY += target - pos;
-            minY = (curY < minY ? curY : minY);
-            maxY = (curY > maxY ? curY : maxY);
-        }
-    }
-
-    int cx = (1000 * (width - 100)) / (maxX - minX + 1);
-    int cy = (1000 * (height - 150)) / (maxY - minY + 1);
-
-    cx = cy = (cx < cy ? cx : cy);
-
-    curX = curY = 0;
-    int prevX = 0;
-    int prevY = 0;
-    for (int i = 0; i < movesCount; i += 3) {
-        int axis = moves[i];
-        int pos = moves[i + 1];
-        int target = moves[i + 2];
-
-        prevX = curX;
-        prevY = curY;
-        if (axis == 0) {
-            curX += target - pos;
-        }
-        if (axis == 1) {
-            curY += target - pos;
-        }
-
-        int x1 = 50 + (cx * (prevX - minX)) / 1000;
-        int y1 = 100 + (cy * (prevY - minY)) / 1000;
-        int x2 = 50 + (cx * (curX - minX)) / 1000;
-        int y2 = 100 + (cy * (curY - minY)) / 1000;
-        drawLine(bits, x1, y1, x2, y2, color % 31);
-    }
-}
-
-void MainWindow::flushQueue()
-{
-    update();
-    QApplication::processEvents();
-
-    //drawMoves(prnBits, moves, movesCount, width(), height(), curZ);
-
-    //cmdQueue.clear();
-    //return;
-
     QString cmd = "q";
     for (int i = 0; i < cmdQueue.count(); i++) {
         cmd += " ";
@@ -310,6 +363,18 @@ void MainWindow::flushQueue()
     }
     cmd += " e" + QString::number(++moveNo) + " ";
     cmdQueue.clear();
+
+    // Execute on milling machine simulator
+    Serial.load(cmd);
+    int extraLoops = 100;
+    while(Serial.available() || --extraLoops > 0)
+    {
+        loop();
+    }
+    update();
+    QApplication::processEvents();
+
+    return;
 
     qDebug() << "cmd=" << cmd;
     QByteArray cmdBytes = cmd.toAscii();
@@ -337,6 +402,12 @@ void MainWindow::flushQueue()
         remains -= count;
     }
     //    port.write(cmd.toAscii());
+}
+
+// Wait until arduino finishes all command sent
+void MainWindow::waitCmdDone()
+{
+    return;
 
     QString expect = "qdone" + QString::number(moveNo);
     qDebug() << "expect=" << expect;
@@ -363,7 +434,7 @@ void MainWindow::flushQueue()
         if (index >= 0) {
             return;
         }
-        if (serialLog.lastIndexOf("limit") >= 0) {
+        if (serialLog.lastIndexOf("limit") >= 0) {      // limit switch
             QString tail =
                 serialLog.count() < 1024 ? serialLog : serialLog.right(1024);
             QMessageBox::information(this, "Limit reached", tail);
@@ -376,7 +447,8 @@ void MainWindow::sendCmd(QString cmd, bool flush)
 {
     cmdQueue.append(cmd);
     if (flush) {
-        flushQueue();
+        writeCmdQueue();
+        waitCmdDone();
     }
 }
 
@@ -420,7 +492,8 @@ void MainWindow::readSerial()
 
 void MainWindow::on_bSendSerial_clicked()
 {
-    port.write(ui->tbSendSerial->text().toAscii());
+    //port.write(ui->tbSendSerial->text().toAscii());
+    sendCmd(ui->tbSendSerial->text());
 }
 
 void MainWindow::on_bXMinus_clicked()
@@ -459,296 +532,12 @@ void MainWindow::on_bZPlus_clicked()
     move(0, 0, 24);
 }
 
-// Move plotter using svg coordinates
-//
-// pcbWidth = 331827 svg pixes = 94.285mm
-// 5000 steps = 43.6 mm
-// 10812.5 steps = 94.285mm
-//
-// 331827 svg pixels = 10812.5 steps
-// 1step = 30.6892023121
-void MainWindow::moveBySvgCoord(int axis, qint64 pos, qint64 target, int driftX,
-                                bool justSetpos)
-{
-    int stepsPos = (pos * 1000) / 30897;
-    int stepsTarget = (target * 1000) / 30897;
-
-    if (axis == 0) {
-        stepsPos += driftX;
-        stepsTarget += driftX;
-    }
-
-    move(axis, stepsPos, stepsTarget, justSetpos, false);
-}
-
-static QString num2svg(qint64 num)
-{
-    int th = abs(num) / 1000;
-    int rest = abs(num) % 1000;
-    QString res = (num >= 0 ? "" : "-");
-    res += QString::number(th);
-    res += '.';
-    if (rest <= 9) {
-        res += "00";
-    } else if (rest <= 99) {
-        res += "0";
-    }
-    res += QString::number(rest);
-    return res;
-}
-
-// Load svg lines to x1,y1,x2,y2 arrays and return count
-static int loadSvg(QString path, qint64 * x1, qint64 * y1, qint64 * x2,
-                   qint64 * y2, QStringList & lines, int maxCount,
-                   qint64 & minX, qint64 & maxX, qint64 & minY, qint64 & maxY)
-{
-    qDebug() << "loading " << path;
-
-    QFile f(path);
-    if (!f.open(QFile::ReadOnly)) {
-        qCritical() << "failed to load " << path << ": " << f.errorString();
-        return 0;
-    }
-
-    int count = 0;
-
-    QRegExp rxy("d=\"([mM]) (-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
-    QRegExp rwh("(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)");
-    QRegExp rsci("[0123456789\\.-]+e[0123456789\\.-]+");    // scientific format, e.g. -8e-4
-
-    // Read and parse svg file, results are in x1,x2,y1,y2 arrays
-    for (;;) {
-        QByteArray line = f.readLine();
-        if (line.isEmpty()) {
-            break;
-        }
-        line = line.trimmed();
-
-        // Convert scientific small numbers to 0
-        int pos = rsci.indexIn(line);
-        if (pos >= 0) {
-            line.replace(rsci.cap(0), "0");
-            qDebug() << "removed scientific format, new line=" << line;
-        }
-
-        pos = rxy.indexIn(line);
-        if (pos < 0) {
-            continue;
-        }
-        bool abs = rxy.cap(1) == "M";
-        qDebug() << "line[" << count << "]=" << line;
-
-        QString capxy = rxy.cap(0);
-        qint64 x = getCoord(rxy.cap(2));
-        qint64 y = getCoord(rxy.cap(3));
-
-        line.remove(0, pos + capxy.length());
-
-        for (int i = 0;; i++) {
-            pos = rwh.indexIn(line);
-            if (pos < 0) {
-                break;
-            }
-
-            QString capwh = rwh.cap(0);
-            qint64 w = getCoord(rwh.cap(1));
-            qint64 h = getCoord(rwh.cap(2));
-
-            if (abs) {
-                w -= x;
-                h -= y;
-            }
-
-            qDebug() << "x=" << x << " y=" << y << " w=" << w << " h=" << h;
-
-            x1[count] = x;
-            y1[count] = y;
-            x2[count] = x + w;
-            y2[count] = y + h;
-
-            minX = (x1[count] < minX ? x1[count] : minX);
-            maxX = (x1[count] > maxX ? x1[count] : maxX);
-            minX = (x2[count] < minX ? x2[count] : minX);
-            maxX = (x2[count] > maxX ? x2[count] : maxX);
-
-            minY = (y1[count] < minY ? y1[count] : minY);
-            maxY = (y1[count] > maxY ? y1[count] : maxY);
-            minY = (y2[count] < minY ? y2[count] : minY);
-            maxY = (y2[count] > maxY ? y2[count] : maxY);
-
-            count++;
-            lines.append(line);
-
-//            drawLine(prnBits,
-//                     x / 1000,
-//                     y / 1000 - 500,
-//                     (x + w) / 1000,
-//                     (y + h) / 1000 - 500,
-//                     1);
-
-            if (count > maxCount) {
-                qWarning() << "svg file longer then maxCount=" << maxCount;
-                break;
-            }
-
-            x += w;
-            y += h;
-
-            line.remove(0, pos + capwh.length());
-            qDebug() << "rem=" << line;
-        }
-    }
-
-    f.close();
-    qDebug() << "MIN X=" << minX << " MAX X=" << maxX << " MIN Y=" << minY <<
-        " MAX Y=" << maxY;
-
-    return count;
-}
-
-static void mirror(qint64 * x1, qint64 * y1, qint64 * x2, qint64 * y2,
-                   int count, qint64 minX, qint64 maxX, qint64 minY,
-                   qint64 /*maxY */ )
-{
-    qint64 midX = (minX + maxX) / 2 - minX;
-    for (int i = 0; i < count; i++) {
-        x1[i] = midX - x1[i] + midX;
-        x2[i] = midX - x2[i] + midX;
-
-        // Make sure we have only positive coordinates
-        x1[i] -= minX;
-        x2[i] -= minX;
-        y1[i] -= minY;
-        y2[i] -= minY;
-
-        if (x1[i] < 0 || x2[i] < 0 || y1[i] < 0 || y2[i] < 0) {
-            qDebug() << "negative coordinate";
-            exit(123);
-        }
-    }
-}
-
-void MainWindow::millShape(qint64 * x1, qint64 * y1, qint64 * x2, qint64 * y2,
-                           int *colors, int count, int color, int driftX,
-                           QStringList & /*lines */ ,
-                           qint64 & lastX, qint64 & lastY, bool firstPoint)
-{
-    // Current and target positions on svg
-    qint64 cx;
-    qint64 cy;
-    qint64 tx = lastX;
-    qint64 ty = lastY;
-
-    memset(colors, color ? 0 : 1, 65535);
-
-    for (;;) {
-        // Find nearest line
-        qint64 ndist = 0x7fffffffffffffff;
-        int nindex = -1;
-        bool swap = false;
-        for (int i = 0; i < count; i++) {
-            qint64 w = x1[i] - tx;
-            qint64 h = y1[i] - ty;
-            qint64 dist1 = w * w + h * h;
-            w = x2[i] - tx;
-            h = y2[i] - ty;
-            qint64 dist2 = w * w + h * h;
-            qint64 dist = (dist1 < dist2 ? dist1 : dist2);
-            //qDebug() << "i=" << i << ", dist=" << dist << "line=" << lines.at(i);
-            if (dist > ndist) {
-                continue;
-            }
-            if (colors[i] == color) {
-                continue;       // already drawn
-            }
-            ndist = dist;
-            nindex = i;
-            swap = (dist2 < dist1);
-            if (firstPoint)     // make sure we start from index=0 if requested
-            {
-                firstPoint = false;
-                ndist = -1;
-            }
-        }
-
-        if (nindex >= 0) {
-            cx = swap ? x2[nindex] : x1[nindex];
-            cy = swap ? y2[nindex] : y1[nindex];
-            tx = swap ? x1[nindex] : x2[nindex];
-            ty = swap ? y1[nindex] : y2[nindex];
-            colors[nindex] = color;
-
-            //qDebug() << "next line is " << lines.at(nindex);
-        } else {
-//            update();
-//            QApplication::processEvents();
-//            Sleeper::msleep(5000);
-
-            // all done
-            flushQueue();
-            return;
-        }
-
-        if (cx != lastX || cy != lastY) // if lines on are not continuous
-        {
-//            drawLine(prnBits,
-//                     lastX / 1000 + 200,
-//                     lastY / 1000 - 700,
-//                     cx / 1000 + 200,
-//                     cy / 1000 - 700,
-//                     color);
-
-            moveBySvgCoord(0, lastX, cx, driftX, true);
-            moveBySvgCoord(1, lastY, cy, driftX, false);
-        }
-//        drawLine(prnBits,
-//                 cx / 1000 + 200,
-//                 cy / 1000 - 700,
-//                 tx / 1000 + 200,
-//                 ty / 1000 - 700,
-//                 color);
-
-        moveBySvgCoord(0, cx, tx, driftX, true);
-        moveBySvgCoord(1, cy, ty, driftX, false);
-
-        lastX = tx;
-        lastY = ty;
-    }
-}
-
-// Move z axis in 0.5 mm steps
-void MainWindow::moveZ(int z, int &driftX)
-{
-    curZ += z;
-    qDebug() << "======================= Z=" << curZ;
-
-    sendCmd("s8000 d4000");
-    while (z > 0) {
-        move(2, 0, 437, false, true);   // drill the shape shifted 0.5mm down
-        move(0, 0, 24, false, true);    // compensate x drift
-
-        move(2, 437, 437 - 128);    // move up & down so that the gear does not slip ;-)
-        move(2, 437 - 128, 437);
-
-        driftX += 24;
-        z--;
-    }
-    while (z < 0) {
-        move(0, 24, 0, false, true);    // compensate x drift
-        move(2, 437, 0, false, true);   // drill the shape shifted 0.5mm down
-        driftX -= 24;
-        z++;
-    }
-    sendCmd("s4000 d3000");
-}
-
 void MainWindow::on_bMill_clicked()
 {
     milling = true;
-    int driftX = 0;
 
     if(!QFile::exists("remaining.txt")) {
-        if(!QFile::copy("shape.txt", "remaining.txt")) {
+        if(!QFile::copy(ui->tbModelFile->text(), "remaining.txt")) {
             QMessageBox::critical(this, "Error", "Failed to copy shape.txt -> remaining.txt");
             return;
         }
@@ -775,118 +564,19 @@ void MainWindow::on_bMill_clicked()
             continue;
         }
 
+        //qDebug() << line;
+        cmdQueue.append(line);
+        writeCmdQueue();
+
         f.resize(rest.length());
         f.seek(0);
         if(f.write(rest) != rest.length())
         {
             QMessageBox::critical(this, "Error", "Failed write to remaining.txt");
         }
-
-        //qDebug() << line;
-        sendCmd(line);
+        waitCmdDone();
      }
     f.close();
     QFile::remove("remaining.txt");
     QMessageBox::information(this, "milling", "done!");
-}
-
-// Compute milling path taking into account driller radius
-void MainWindow::on_bMillPath_clicked()
-{
-    QStringList lines;
-    static qint64 x1[65535];
-    static qint64 y1[65535];
-    static qint64 x2[65535];
-    static qint64 y2[65535];
-
-    qint64 minX = 0x7fffffffffffffff;
-    qint64 maxX = 0;
-    qint64 minY = 0x7fffffffffffffff;
-    qint64 maxY = 0;
-
-    int count =
-        loadSvg("/home/radek/alfi/gui/lcm.svg", x1, y1, x2, y2, lines, 65535,
-                minX, maxX, minY, maxY);
-
-    openOutFile("/home/radek/alfi/gui/lcm_milling.svg");
-
-    QString millStr;
-    for (int i = 0; i < count; i++) {
-        qint64 cx, cy, tx, ty;
-        millingPath(x1[i], y1[i], x2[i], y2[i], 9525 - 4762,    // driller radius (1.6) - some space so that pcb fits in (0.8)
-                    cx, cy, tx, ty);
-
-        millStr.append("<path d=\"m ");
-        millStr.append(num2svg(cx) + "," + num2svg(cy) + " " +
-                       num2svg(tx - cx) + "," + num2svg(ty - cy));
-        millStr.
-            append
-            ("\"\nstyle=\"fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.76908362;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-opacity:1;stroke-dasharray:none\"\n");
-        millStr.append("id=\"path" + QString::number(x1[i] + y1[i]) + "\"\n");
-        millStr.append("/>\n\n");
-    }
-
-    outFile->write(millStr.toLatin1());
-    closeOutFile();
-}
-
-void MainWindow::on_bMillCover_clicked()
-{
-    milling = true;
-
-    qint64 minX = 0x7fffffffffffffff;
-    qint64 maxX = 0;
-    qint64 minY = 0x7fffffffffffffff;
-    qint64 maxY = 0;
-
-    // Outer shape
-    QStringList shapeLines;
-    static qint64 shapeX1[65535];
-    static qint64 shapeY1[65535];
-    static qint64 shapeX2[65535];
-    static qint64 shapeY2[65535];
-    static int shapeColors[65535];
-
-    int shapeCount =
-        loadSvg("/home/radek/alfi/gui/cover_shape_milling.svg", shapeX1, shapeY1,
-                shapeX2, shapeY2, shapeLines, 65535, minX, maxX, minY, maxY);
-
-    // Battery hole
-    QStringList batteryLines;
-    static qint64 batteryX1[65535];
-    static qint64 batteryY1[65535];
-    static qint64 batteryX2[65535];
-    static qint64 batteryY2[65535];
-    static int batteryColors[65535];
-
-    int batteryCount =
-        loadSvg("/home/radek/alfi/gui/battery_hole_milling.svg", batteryX1, batteryY1, batteryX2,
-                batteryY2, batteryLines, 65535, minX, maxX, minY, maxY);
-
-    mirror(shapeX1, shapeY1, shapeX2, shapeY2, shapeCount, minX, maxX, minY,
-           maxY);
-    mirror(batteryX1, batteryY1, batteryX2, batteryY2, batteryCount, minX, maxX, minY, maxY);
-
-    int driftX = 0;
-    qint64 lastX = shapeX1[0];
-    qint64 lastY = shapeY1[0];
-
-    // Start with outer shape
-    millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);    // 0mm
-    moveZ(-1, driftX);
-
-    // Battery hole 6mm down
-    for (int i = 1; i <= 13; i++) {
-        millShape(batteryX1, batteryY2, batteryX2, batteryY2, batteryColors, batteryCount, i, driftX, batteryLines, lastX, lastY);  // -0.5..6mm
-        moveZ(1, driftX);
-    }
-
-    // Move to outer shape -0.5 above
-    moveZ(-14, driftX);
-
-    // Outer shape 10mm down
-    for (int i = 1; i <= 21; i++) {
-        millShape(shapeX1, shapeY1, shapeX2, shapeY2, shapeColors, shapeCount, 1, driftX, shapeLines, lastX, lastY);    // -0.5..15mm
-        moveZ(1, driftX);
-    }
 }

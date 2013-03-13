@@ -49,7 +49,6 @@ public:
     Ui::MainWindow *ui;
     QImage img;
     QImage prn;
-    uchar *prnBits;
     QString imgFile;
     QSerialPort port;
     QString serialLog;
@@ -61,7 +60,8 @@ public:
     int curZ;
 
     void sendCmd(QString cmd, bool flush = true);
-    void flushQueue();
+    void writeCmdQueue();
+    void waitCmdDone();
     void move(int axis, int pos, int target, bool justSetPos = false, bool flush = true);
     void moveBySvgCoord(int axis, qint64 pos, qint64 target, int driftX, bool justSetPos);
     void millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
@@ -72,8 +72,6 @@ public:
     void moveZ(int z, int & driftX);
 
 private slots:
-    void on_bMillCover_clicked();
-    void on_bMillPath_clicked();
     void on_bMill_clicked();
     void on_bZPlus_clicked();
     void on_bZMinus_clicked();

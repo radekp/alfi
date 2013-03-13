@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>828</width>
-    <height>562</height>
+    <width>480</width>
+    <height>640</height>
    </rect>
   </property>
   <property name="focusPolicy">
@@ -20,9 +20,9 @@
    <widget class="QLineEdit" name="tbSendSerial">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>40</y>
-      <width>261</width>
+      <x>0</x>
+      <y>70</y>
+      <width>351</width>
       <height>25</height>
      </rect>
     </property>
@@ -33,9 +33,9 @@
    <widget class="QTextBrowser" name="tbSerial">
     <property name="geometry">
      <rect>
-      <x>540</x>
+      <x>0</x>
       <y>0</y>
-      <width>281</width>
+      <width>481</width>
       <height>71</height>
      </rect>
     </property>
@@ -43,8 +43,8 @@
    <widget class="QPushButton" name="bSendSerial">
     <property name="geometry">
      <rect>
-      <x>280</x>
-      <y>40</y>
+      <x>360</x>
+      <y>70</y>
       <width>121</width>
       <height>26</height>
      </rect>
@@ -56,10 +56,10 @@
    <widget class="QPushButton" name="bXMinus">
     <property name="geometry">
      <rect>
-      <x>410</x>
-      <y>40</y>
-      <width>41</width>
-      <height>26</height>
+      <x>10</x>
+      <y>150</y>
+      <width>51</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -69,10 +69,10 @@
    <widget class="QPushButton" name="bXPlus">
     <property name="geometry">
      <rect>
-      <x>490</x>
-      <y>40</y>
-      <width>41</width>
-      <height>26</height>
+      <x>110</x>
+      <y>150</y>
+      <width>51</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -82,10 +82,10 @@
    <widget class="QPushButton" name="bYPlus">
     <property name="geometry">
      <rect>
-      <x>450</x>
-      <y>20</y>
-      <width>41</width>
-      <height>26</height>
+      <x>60</x>
+      <y>100</y>
+      <width>51</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -95,10 +95,10 @@
    <widget class="QPushButton" name="bYMinus">
     <property name="geometry">
      <rect>
-      <x>450</x>
-      <y>40</y>
-      <width>41</width>
-      <height>26</height>
+      <x>60</x>
+      <y>150</y>
+      <width>51</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -108,10 +108,10 @@
    <widget class="QPushButton" name="bZMinus">
     <property name="geometry">
      <rect>
-      <x>410</x>
-      <y>20</y>
-      <width>41</width>
-      <height>26</height>
+      <x>10</x>
+      <y>100</y>
+      <width>51</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -121,10 +121,10 @@
    <widget class="QPushButton" name="bZPlus">
     <property name="geometry">
      <rect>
-      <x>490</x>
-      <y>20</y>
-      <width>41</width>
-      <height>26</height>
+      <x>110</x>
+      <y>100</y>
+      <width>51</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -134,36 +134,23 @@
    <widget class="QPushButton" name="bMill">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>10</y>
+      <x>380</x>
+      <y>140</y>
       <width>91</width>
-      <height>28</height>
+      <height>61</height>
      </rect>
     </property>
     <property name="text">
-     <string>Mill case</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="bMillPath">
-    <property name="geometry">
-     <rect>
-      <x>210</x>
-      <y>10</y>
-      <width>61</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Path</string>
+     <string>Mill</string>
     </property>
    </widget>
    <widget class="QSpinBox" name="spinBox">
     <property name="geometry">
      <rect>
-      <x>330</x>
-      <y>10</y>
-      <width>71</width>
-      <height>21</height>
+      <x>170</x>
+      <y>100</y>
+      <width>61</width>
+      <height>101</height>
      </rect>
     </property>
     <property name="maximum">
@@ -173,17 +160,17 @@
      <number>400</number>
     </property>
    </widget>
-   <widget class="QPushButton" name="bMillCover">
+   <widget class="QLineEdit" name="tbModelFile">
     <property name="geometry">
      <rect>
-      <x>110</x>
-      <y>10</y>
-      <width>91</width>
-      <height>28</height>
+      <x>240</x>
+      <y>110</y>
+      <width>231</width>
+      <height>25</height>
      </rect>
     </property>
     <property name="text">
-     <string>Mill cover</string>
+     <string>model.txt</string>
     </property>
    </widget>
   </widget>
@@ -192,7 +179,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>828</width>
+     <width>480</width>
      <height>25</height>
     </rect>
    </property>

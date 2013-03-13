@@ -51,6 +51,30 @@ int limit;                      // last value of limit switch
 int lastAxis;
 int lastAxis2;
 
+void xOff()
+{
+    digitalWrite(2, LOW);
+    digitalWrite(3, LOW);
+    digitalWrite(4, LOW);
+    digitalWrite(5, LOW);
+}
+
+void yOff()
+{
+    digitalWrite(6, LOW);
+    digitalWrite(7, LOW);
+    digitalWrite(8, LOW);
+    digitalWrite(9, LOW);
+}
+
+void zOff()
+{
+    digitalWrite(10, LOW);
+    digitalWrite(11, LOW);
+    digitalWrite(12, LOW);
+    digitalWrite(13, LOW);
+}
+
 int delayAndCheckLimit(int delayUs, int inputNo, int axis, long pos, long target)
 {
     int oldLimit = limit;
@@ -87,30 +111,6 @@ int delayAndCheckLimit(int delayUs, int inputNo, int axis, long pos, long target
     lastAxis2 = lastAxis;
     lastAxis = axis;
     return delayUs;
-}
-
-void xOff()
-{
-    digitalWrite(2, LOW);
-    digitalWrite(3, LOW);
-    digitalWrite(4, LOW);
-    digitalWrite(5, LOW);
-}
-
-void yOff()
-{
-    digitalWrite(6, LOW);
-    digitalWrite(7, LOW);
-    digitalWrite(8, LOW);
-    digitalWrite(9, LOW);
-}
-
-void zOff()
-{
-    digitalWrite(10, LOW);
-    digitalWrite(11, LOW);
-    digitalWrite(12, LOW);
-    digitalWrite(13, LOW);
 }
 
 // One step to x
