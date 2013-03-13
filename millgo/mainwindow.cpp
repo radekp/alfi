@@ -32,6 +32,8 @@ QFile *outFile = NULL;
 
 uchar *prnBits;
 
+MainWindow *mainWin;
+
 void openOutFile(QString name)
 {
     if (outFile) {
@@ -101,6 +103,8 @@ moveNo(0), cmdQueue(), milling(false), movesCount(0), curZ(0)
     }
     MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
     readSerial();
+
+    mainWin = this;
 }
 
 MainWindow::~MainWindow()
@@ -129,40 +133,40 @@ void setPixel(uchar * bits, int x, int y, uchar val)
 }
 
 
-//static void drawLine(uchar * bits, int x0, int y0, int x1, int y1, int color)
-//{
-//    int dx = abs(x1 - x0);
-//    int dy = abs(y1 - y0);
-//    int sx, sy;
-//    if (x0 < x1) {
-//        sx = 1;
-//    } else {
-//        sx = -1;
-//    }
-//    if (y0 < y1) {
-//        sy = 1;
-//    } else {
-//        sy = -1;
-//    }
-//    int err = dx - dy;
-//    int e2;
+static void drawLine2(uchar * bits, int x0, int y0, int x1, int y1, int color)
+{
+    int dx = abs(x1 - x0);
+    int dy = abs(y1 - y0);
+    int sx, sy;
+    if (x0 < x1) {
+        sx = 1;
+    } else {
+        sx = -1;
+    }
+    if (y0 < y1) {
+        sy = 1;
+    } else {
+        sy = -1;
+    }
+    int err = dx - dy;
+    int e2;
 
-//    for (;;) {
-//        setPixel(bits, x0, y0, color);
-//        if (x0 == x1 && y0 == y1) {
-//            break;
-//        }
-//        e2 = 2 * err;
-//        if (e2 > -dy) {
-//            err = err - dy;
-//            x0 = x0 + sx;
-//        }
-//        if (e2 < dx) {
-//            err = err + dx;
-//            y0 = y0 + sy;
-//        }
-//    }
-//}
+    for (;;) {
+        setPixel(bits, x0, y0, color);
+        if (x0 == x1 && y0 == y1) {
+            break;
+        }
+        e2 = 2 * err;
+        if (e2 > -dy) {
+            err = err - dy;
+            x0 = x0 + sx;
+        }
+        if (e2 < dx) {
+            err = err + dx;
+            y0 = y0 + sy;
+        }
+    }
+}
 
 //
 // Milling machine simulator
@@ -230,12 +234,24 @@ int newMachineX = 0;
 int newMachineY = 0;
 int newMachineZ = 0;
 
-
 void delayMicroseconds(int)
 {
+    int w = mainWin->width();
+    int h = mainWin->height();
+
+    drawLine2(prnBits,
+              machineX / 100 + w / 2 + machineZ,
+              machineY / 100 + h / 2 + machineZ,
+              newMachineX /100 + w / 2 + newMachineZ,
+              newMachineY / 100 + h / 2 + newMachineZ,
+              (newMachineZ % 31) + 1);
+
     machineX = newMachineX;
     machineY = newMachineY;
     machineZ = newMachineZ;
+
+    //setPixel(prnBits, machineX, machineY, 1);
+    //mainWin->update();
 
     //qDebug() << " move " << machineX << "," << machineY << "," << machineZ;
 }
@@ -308,11 +324,19 @@ void digitalWrite(int gpio, int value)
         else
             str+="0";
     }
-    qDebug() << "gpioVal " << str;
+    //qDebug() << "gpioVal " << str;
 
     if(gpio >= 2 && gpio <= 5)      // x axis, gpios 3 2 4 5
     {
         newMachineX = machineMove(machineX, gpioVal, 3, 2, 4, 5);
+    }
+    if(gpio >= 6 && gpio <= 9)      // y axis, gpios 8 7 9 6
+    {
+        newMachineY = machineMove(machineY, gpioVal, 8, 7, 9, 6);
+    }
+    if(gpio >= 10 && gpio <= 13)      // z axis, gpios 13 12 10 11
+    {
+        newMachineZ = machineMove(machineZ, gpioVal, 13, 12, 10, 11);
     }
 }
 
@@ -327,12 +351,6 @@ void MainWindow::paintEvent(QPaintEvent *)
     QPainter p(this);
     p.drawImage(0, 0, prn);
     return;
-
-    if (img.isNull()) {
-        return;
-    }
-    p.drawImage(0, 50, img);
-    p.drawImage(0, 100, prn);
 }
 
 // Send cmd queue to arduino. Returns after arduino received it
@@ -352,9 +370,10 @@ void MainWindow::writeCmdQueue()
     while(Serial.available() || --extraLoops > 0)
     {
         loop();
-        update();
-        QApplication::processEvents();
     }
+    update();
+    QApplication::processEvents();
+
     return;
 
     qDebug() << "cmd=" << cmd;
@@ -518,7 +537,7 @@ void MainWindow::on_bMill_clicked()
     milling = true;
 
     if(!QFile::exists("remaining.txt")) {
-        if(!QFile::copy("shape.txt", "remaining.txt")) {
+        if(!QFile::copy(ui->tbModelFile->text(), "remaining.txt")) {
             QMessageBox::critical(this, "Error", "Failed to copy shape.txt -> remaining.txt");
             return;
         }
