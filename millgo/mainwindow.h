@@ -72,8 +72,6 @@ public:
     void moveZ(int z, int & driftX);
 
 private slots:
-    void on_bMillCover_clicked();
-    void on_bMillPath_clicked();
     void on_bMill_clicked();
     void on_bZPlus_clicked();
     void on_bZMinus_clicked();
