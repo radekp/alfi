@@ -240,10 +240,10 @@ void delayMicroseconds(int)
     int h = mainWin->height();
 
     drawLine2(prnBits,
-              machineX / 100 + w / 2 + machineZ,
-              machineY / 100 + h / 2 + machineZ,
-              newMachineX /100 + w / 2 + newMachineZ,
-              newMachineY / 100 + h / 2 + newMachineZ,
+              machineX / 10 + w / 2 + machineZ / 10,
+              machineY / 10 + h / 2 + machineZ / 10,
+              newMachineX / 10 + w / 2 + newMachineZ / 10,
+              newMachineY / 10 + h / 2 + newMachineZ / 10,
               (newMachineZ % 31) + 1);
 
     machineX = newMachineX;
@@ -253,7 +253,7 @@ void delayMicroseconds(int)
     //setPixel(prnBits, machineX, machineY, 1);
     //mainWin->update();
 
-    //qDebug() << " move " << machineX << "," << machineY << "," << machineZ;
+    qDebug() << " move " << machineX << "," << machineY << "," << machineZ;
 }
 
 int analogRead(int)

@@ -19,11 +19,12 @@
 
 #define MAX_CMDS 128
 
-long cx;
-long tx;
+long cx;                        // current pos
 long cy;
-long ty;
 long cz;
+
+long tx;                        // target pos
+long ty;
 long tz;
 
 int axis;                       // selected axis number
@@ -34,7 +35,7 @@ long delayX;                     // current delay on x
 long delayY;                     // current delay on y
 long delayZ;                     // current delay on z
 
-char cmd;                       // current command (a=axis, p=cpos, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion, q=queue start, e=execute queue)
+char cmd;                       // current command (a=axis, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion, q=queue start, e=execute queue)
 long arg;                        // argument for current commands
 
 char cmds[MAX_CMDS];            // queued commands
@@ -75,7 +76,7 @@ void zOff()
     digitalWrite(13, LOW);
 }
 
-int delayAndCheckLimit(int delayUs, int inputNo, int axis, long pos, long target)
+int delayAndCheckLimit(int delayUs, int inputNo, int axis)
 {
     int oldLimit = limit;
     delayMicroseconds(delayUs);
@@ -157,7 +158,7 @@ void moveX()
         digitalWrite(3, HIGH);
         break;                  // 53
     }
-    delayX = delayAndCheckLimit(delayX, A2, 0, cx, tx);
+    delayX = delayAndCheckLimit(delayX, A2, 0);
 }
 
 // One step to y
@@ -204,7 +205,7 @@ void moveY()
         digitalWrite(8, HIGH);
         break;                  // 68
     }
-    delayY = delayAndCheckLimit(delayY, A0, 1, cy, ty);
+    delayY = delayAndCheckLimit(delayY, A0, 1);
 }
 
 // One step to z
@@ -251,7 +252,7 @@ void moveZ()
         digitalWrite(13, HIGH);
         break;                  // 11 13
     }
-    delayZ = delayAndCheckLimit(delayZ, A1, 2, cz, tz);
+    delayZ = delayAndCheckLimit(delayZ, A1, 2);
 }
 
 // draw line using Bresenham's line algorithm
@@ -452,14 +453,6 @@ void loop()
     }
     if (cmd == 'a') {
         axis = arg;
-    } else if (cmd == 'p') {
-        if (axis == 0) {
-            cx = arg;
-        } else if (axis == 1) {
-            cy = arg;
-        } else {
-            cz = arg;
-        }
     } else if (cmd == 't') {
         if (axis == 0) {
             tx = arg;
