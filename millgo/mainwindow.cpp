@@ -175,7 +175,8 @@ void MainWindow::paintEvent(QPaintEvent *)
     p.drawImage(0, 100, prn);
 }
 
-void MainWindow::flushQueue()
+// Send cmd queue to arduino. Returns after arduino received it
+void MainWindow::writeCmdQueue()
 {
     update();
     QApplication::processEvents();
@@ -219,7 +220,11 @@ void MainWindow::flushQueue()
         remains -= count;
     }
     //    port.write(cmd.toAscii());
+}
 
+// Wait until arduino finishes all command sent
+void MainWindow::waitCmdDone()
+{
     QString expect = "qdone" + QString::number(moveNo);
     qDebug() << "expect=" << expect;
     for (;;) {
@@ -245,7 +250,7 @@ void MainWindow::flushQueue()
         if (index >= 0) {
             return;
         }
-        if (serialLog.lastIndexOf("limit") >= 0) {
+        if (serialLog.lastIndexOf("limit") >= 0) {      // limit switch
             QString tail =
                 serialLog.count() < 1024 ? serialLog : serialLog.right(1024);
             QMessageBox::information(this, "Limit reached", tail);
@@ -258,7 +263,8 @@ void MainWindow::sendCmd(QString cmd, bool flush)
 {
     cmdQueue.append(cmd);
     if (flush) {
-        flushQueue();
+        writeCmdQueue();
+        waitCmdDone();
     }
 }
 
@@ -373,15 +379,17 @@ void MainWindow::on_bMill_clicked()
             continue;
         }
 
+        //qDebug() << line;
+        cmdQueue.append(line);
+        writeCmdQueue();
+
         f.resize(rest.length());
         f.seek(0);
         if(f.write(rest) != rest.length())
         {
             QMessageBox::critical(this, "Error", "Failed write to remaining.txt");
         }
-
-        //qDebug() << line;
-        sendCmd(line);
+        waitCmdDone();
      }
     f.close();
     QFile::remove("remaining.txt");

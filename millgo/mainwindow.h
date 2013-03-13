@@ -61,7 +61,8 @@ public:
     int curZ;
 
     void sendCmd(QString cmd, bool flush = true);
-    void flushQueue();
+    void writeCmdQueue();
+    void waitCmdDone();
     void move(int axis, int pos, int target, bool justSetPos = false, bool flush = true);
     void moveBySvgCoord(int axis, qint64 pos, qint64 target, int driftX, bool justSetPos);
     void millShape(qint64 * x1, qint64 *y1, qint64 * x2, qint64 *y2,
