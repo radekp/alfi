@@ -300,7 +300,7 @@ void delayMicroseconds(int)
               ((newMachineZ / 5) % 31) + 1);
 
     if(machineZ != newMachineZ)
-        mainWin->setWindowTitle("Milling z=" + QString::number(machineZ));
+        mainWin->setWindowTitle("Milling z=" + QString::number((10 * machineZ) / 847));
 
     machineX = newMachineX;
     machineY = newMachineY;
