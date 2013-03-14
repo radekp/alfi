@@ -42,11 +42,11 @@ func max(a, b int32) int32 {
 
 // Trajectory computer and output
 type Tco struct {
-	x, y   int32     // current x, y
-	tx, ty int32     // target for aggregate moves
-	mX, mY int32     // x, y in machine coordinates
-	cmdLen int       // length of unflushed commands
-	cmd    io.Writer // output of commands for arduio driver
+	x, y, z int32     // current x, y, z
+	tx, ty  int32     // target for aggregate moves
+	mX, mY  int32     // x, y in machine coordinates
+	cmdLen  int       // length of unflushed commands
+	cmd     io.Writer // output of commands for arduio driver
 }
 
 // Move stepper motor from A to B (in pixel coordinates, 1pixel=0.1mm)
@@ -55,6 +55,13 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 	// Stepper motor steps: 5000 steps = 43.6 mm
 	//newMx, newMy := (1250 * x) / 109, (1250 * y ) / 109           //  //newMx, newMy := (5000 * bX) / 436, (5000 * bY ) / 436
 	newMx, newMy := x, y
+
+	// Compensate x-drift
+	// 5000 steps = 43.6 mm
+	// 24 * z     = x drift         <-- 24 is driftX copensation in steps
+	//
+	// driftX = 24 steps
+	newMx += 436 * 24 * t.z / 50000
 
 	if newMx == t.mX && newMy == t.mY {
 		return x, y
@@ -103,12 +110,17 @@ func moveXy(t *Tco, x, y int32) (int32, int32) {
 		t.tx, t.ty = x, y
 		return x, y
 	}
-	
+
 	moveXySimple(t, t.tx, t.ty)
 	return moveXySimple(t, x, y)
 }
 
-// Move z up or down in 0.5mm steps
+// Move up or down to z
+
+// 5000 steps = 43.6 mm
+// 24         = x
+//
+// driftX = 24 steps
 func moveZ(t *Tco, z int32) {
 
 	// Finish pending aggregate moves
@@ -120,31 +132,22 @@ func moveZ(t *Tco, z int32) {
 		t.cmdLen = 0
 	}
 
-	/*
-	   fmt.Fprintf(t.cmd, "s8000 d4000\n")     // slow speed, motor on z axis is from old printer and must move slowly
+	fmt.Fprintf(t.cmd, "s8000 d4000\n") // slow speed, motor on z axis is from old printer and must move slowly
 
-	   for z > 0 {
+	for t.z < z {
+		t.z += 5                                // target 0.5mm down
+		moveXySimple(t, t.x, t.y)               // compensate x drift
+		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z)   // move 0.5mm down
+		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z-2) // move up & down so that the gear does not slip ;-)
+		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z)
+	}
+	for t.z > z {
+		t.z -= 5                              // tartget 0.5mm up
+		moveXySimple(t, t.x, t.y)             // compensate x drift
+		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z) // move 0.5mm up
+	}
 
-	       fmt.Fprintf(t.cmd, "a2 p0 t437 m\n")       // move 0.5mm down
-	       fmt.Fprintf(t.cmd, "a0 p0 t24 m\n")        // compensate x drift
-
-	       fmt.Fprintf(t.cmd, "a2 p437 t309 m\n")     // move up & down so that the gear does not slip ;-)
-	       fmt.Fprintf(t.cmd, "a2 p309 t437 m\n")
-
-	       //newDriftX += 24;
-	       z--;
-	   }
-	   for z < 0 {
-	       fmt.Fprintf(t.cmd, "a0 p24 t0 m\n")       // compensate x drift and move up
-	       fmt.Fprintf(t.cmd, "a2 p437 t0 m\n")      // move 0.5mm up
-
-	       //newDriftX -= 24;
-	       z++;
-	   }
-
-	   fmt.Fprintf(t.cmd, "s4000 d3000\n");    // restore speed
-
-	*/
+	fmt.Fprintf(t.cmd, "s4000 d3000\n") // restore speed
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -831,7 +834,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 
 		if !removed {
 			fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
-			moveZ(tc, -z)
+			moveZ(tc, 0)
 			x, y = moveXy(tc, tX, tY)
 			moveZ(tc, z)
 			//fmt.Scanln()
@@ -881,10 +884,10 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		}
 	}
 
-	moveZ(tc, -z)
+	moveZ(tc, 0)
 	x, y = moveXy(tc, 0, 0)
 
-	fmt.Printf("done!\n")
+	fmt.Printf("done at z=%d!\n", z)
 }
 
 func drawTrajectory(txtFile string, r int32) {
@@ -949,6 +952,7 @@ func drawTrajectory(txtFile string, r int32) {
 		}
 	}
 	for {
+		fmt.Printf("done!\n")
 		fmt.Scanln()
 		ss.Flip()
 	}
@@ -966,15 +970,16 @@ func main() {
 		return
 	}
 
+	var zStep = 10   // z step is 1mm
 	var r int32 = 16 // the case is designed to be milled with 4mm driller, but i have just 3.2mm
-	tco := Tco{0, 0, 0, 0, 0, 0, 0, os.Stderr}
+	tco := Tco{0, 0, 0, 0, 0, 0, 0, 0, os.Stderr}
 	tc := &tco
 
 	for i := 1; i < len(os.Args); i++ {
 
 		filename := os.Args[i]
 		if strings.HasSuffix(filename, ".png") {
-			computeTrajectory(filename, tc, int32(i), r)
+			computeTrajectory(filename, tc, int32(i*zStep), r)
 		} else if strings.HasSuffix(filename, ".txt") {
 			drawTrajectory(filename, r)
 		} else {
