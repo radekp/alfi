@@ -57,11 +57,13 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 	newMx, newMy := x, y
 
 	// Compensate x-drift
-	// 5000 steps = 43.6 mm
-	// 24 * z     = x drift         <-- 24 is driftX copensation in steps
 	//
-	// driftX = 24 steps
-	newMx += 436 * 24 * t.z / 50000
+	// driftX = 24 x-step on 0.5mm
+	// driftX = 48 x-steps on 1mm
+	//
+	// 5000 x-steps = 43.6 mm
+	// 48           =  drifxX
+	newMx += 41856 * t.z / 100000             // approx 0.41856mm on 1mm
 
 	if newMx == t.mX && newMy == t.mY {
 		return x, y
