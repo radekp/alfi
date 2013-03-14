@@ -370,8 +370,6 @@ void MainWindow::writeCmdQueue()
     update();
     QApplication::processEvents();
 
-    return;
-
     qDebug() << "cmd=" << cmd;
     QByteArray cmdBytes = cmd.toAscii();
     int remains = cmdBytes.length();
@@ -403,8 +401,6 @@ void MainWindow::writeCmdQueue()
 // Wait until arduino finishes all command sent
 void MainWindow::waitCmdDone()
 {
-    return;
-
     QString expect = "qdone" + QString::number(moveNo);
     qDebug() << "expect=" << expect;
     for (;;) {
@@ -448,26 +444,16 @@ void MainWindow::sendCmd(QString cmd, bool flush)
     }
 }
 
-void MainWindow::move(int axis, int pos, int target, bool justSetPos,
-                      bool flush)
+void MainWindow::move(int x, int y, int z)
 {
-    moves[movesCount++] = axis;
-    moves[movesCount++] = pos;
-    moves[movesCount++] = target;
-    if (movesCount >= MILL_LOG_LEN) {
-        movesCount = 0;
-    }
+    //qDebug() << "move " << x << "," << y < "," << z << "machine=" << ma;
 
-    QString cmd = "a" + QString::number(axis) +
-        " p" + QString::number(pos) + " t" + QString::number(target);
+    QString cmd = "x" + QString::number((109 * machineX) / 1250 + x)
+            + " y" + QString::number((109 * machineY) / 1250 + y)
+            + " z" + QString::number(machineZ + z)
+            + " m";
 
-    if (!justSetPos) {
-        cmd += " m" + QString::number(++moveNo);
-        if (cmdQueue.count() > QUEUE_LEN) {
-            flush = true;
-        }
-    }
-    sendCmd(cmd, flush);
+    sendCmd(cmd, true);
 }
 
 void MainWindow::readSerial()
@@ -494,38 +480,32 @@ void MainWindow::on_bSendSerial_clicked()
 
 void MainWindow::on_bXMinus_clicked()
 {
-    move(0, 0, ui->spinBox->value());
+    move(-(ui->spinBox->value()), 0, 0);
 }
 
 void MainWindow::on_bXPlus_clicked()
 {
-    move(0, ui->spinBox->value(), 0);
+    move(ui->spinBox->value(), 0, 0);
 }
 
 void MainWindow::on_bYMinus_clicked()
 {
-    move(1, 0, ui->spinBox->value());
+    move(0, -(ui->spinBox->value()), 0);
 }
 
 void MainWindow::on_bYPlus_clicked()
 {
-    move(1, ui->spinBox->value(), 0);
+    move(0, ui->spinBox->value(), 0);
 }
 
 void MainWindow::on_bZMinus_clicked()
 {
-    move(0, 24, 0);
-    move(2, 437, 0);
+    move(0, 0, 5);
 }
 
 void MainWindow::on_bZPlus_clicked()
 {
-    move(2, 0, 437);
-
-    move(2, 437, 437 - 128);    // move up & down so that the gear does not slip ;-)
-    move(2, 437 - 128, 437);
-
-    move(0, 0, 24);
+    move(0, 0, 5);
 }
 
 void MainWindow::on_bMill_clicked()

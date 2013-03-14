@@ -116,7 +116,7 @@ int delayAndCheckLimit(int delayUs, int inputNo, int axis)
 // One step to x
 void moveX()
 {
-    long r = cx % 8;
+    long r = (cx + 0x1000000) % 8;          // 0x1000000 to handle negative values
 
     // 3 2 4 5
     switch (r) {
@@ -163,43 +163,43 @@ void moveX()
 // One step to y
 void moveY()
 {
-    long r = cy % 8;
+    long r = (cy + 0x1000000) % 8;
 
     // 8 7 9 6
     switch (r) {
-    case 0:
+    case 7:
         digitalWrite(6, LOW);
         digitalWrite(7, LOW);
         digitalWrite(8, HIGH);
         break;                  // 8
-    case 1:
+    case 6:
         digitalWrite(8, HIGH);
         digitalWrite(7, HIGH);
         break;                  // 87
-    case 2:
+    case 5:
         digitalWrite(8, LOW);
         digitalWrite(9, LOW);
         digitalWrite(7, HIGH);
         break;                  // 7
-    case 3:
+    case 4:
         digitalWrite(7, HIGH);
         digitalWrite(9, HIGH);
         break;                  // 79
-    case 4:
+    case 3:
         digitalWrite(7, LOW);
         digitalWrite(6, LOW);
         digitalWrite(9, HIGH);
         break;                  // 9
-    case 5:
+    case 2:
         digitalWrite(9, HIGH);
         digitalWrite(6, HIGH);
         break;                  // 96
-    case 6:
+    case 1:
         digitalWrite(9, LOW);
         digitalWrite(8, LOW);
         digitalWrite(6, HIGH);
         break;                  // 6
-    case 7:
+    case 0:
         digitalWrite(6, HIGH);
         digitalWrite(8, HIGH);
         break;                  // 68
@@ -210,7 +210,7 @@ void moveY()
 // One step to z
 void moveZ()
 {
-    long r = cz % 8;
+    long r = (cz + 0x1000000) % 8;
 
     // 13 12 10 11
     switch (r) {
@@ -454,7 +454,7 @@ void loop()
     } else if (cmd == 'y') {
         ty = (1250 * arg) / 109;        // 5000 y-steps = 43.6 mm
     } else if (cmd == 'z') {
-        tz = 847 * arg / 10;            // 874 steps = 1mm
+        tz = (847 * arg) / 10;            // 874 steps = 1mm
     } else if (cmd == 's') {
         sdelay = arg;
     } else if (cmd == 'd') {
