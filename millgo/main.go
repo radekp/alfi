@@ -49,6 +49,25 @@ type Tco struct {
 	cmd     io.Writer // output of commands for arduio driver
 }
 
+func flushCmd(t *Tco) {
+    if t.cmdLen > 0 {
+        fmt.Fprint(t.cmd, "\n")
+        t.cmdLen = 0
+    }
+}
+
+func writeCmd(t *Tco, cmd string) {
+    
+    if t.cmdLen+len(cmd) >= 254 {
+        flushCmd(t)
+    } else if t.cmdLen > 0 {
+            fmt.Fprint(t.cmd, " ")
+            t.cmdLen++
+    }
+    fmt.Fprint(t.cmd, cmd)
+    t.cmdLen += len(cmd)
+}
+
 // Move stepper motor from A to B (in pixel coordinates, 1pixel=0.1mm)
 func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 
@@ -72,27 +91,17 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 	cmd := ""
 
 	if newMx != t.mX {
-		cmd += fmt.Sprintf("a0 t%d", newMx)
+		cmd += fmt.Sprintf("x%d", newMx)
 	}
 	if newMy != t.mY {
 		if newMx != t.mX {
 			cmd += " "
 		}
-		cmd += fmt.Sprintf("a1 t%d", newMy)
+		cmd += fmt.Sprintf("y%d", newMy)
 	}
 	cmd += " m"
 
-	if t.cmdLen+len(cmd) >= 254 {
-		fmt.Fprint(t.cmd, "\n")
-		t.cmdLen = 0
-	} else {
-		if t.cmdLen > 0 {
-			fmt.Fprint(t.cmd, " ")
-			t.cmdLen++
-		}
-	}
-	fmt.Fprint(t.cmd, cmd)
-	t.cmdLen += len(cmd)
+	writeCmd(t, cmd)
 
 	t.x, t.y = x, y
 	t.tx, t.ty = x, y
@@ -128,28 +137,26 @@ func moveZ(t *Tco, z int32) {
 	// Finish pending aggregate moves
 	moveXySimple(t, t.tx, t.ty)
 
-	// Always flush XY moves
-	if t.cmdLen > 0 {
-		fmt.Fprint(t.cmd, "\n")
-		t.cmdLen = 0
-	}
+	// Always flush pending XY moves so that output is more readable
+	flushCmd(t)
 
-	fmt.Fprintf(t.cmd, "s8000 d4000\n") // slow speed, motor on z axis is from old printer and must move slowly
+	writeCmd(t, "s8000 d4000") // slow speed, motor on z axis is from old printer and must move slowly
 
 	for t.z < z {
-		t.z += 5                                // target 0.5mm down
-		moveXySimple(t, t.x, t.y)               // compensate x drift
-		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z)   // move 0.5mm down
-		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z-2) // move up & down so that the gear does not slip ;-)
-		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z)
+		t.z += 5                                 // target 0.5mm down
+		moveXySimple(t, t.x, t.y)                // compensate x drift
+		writeCmd(t, fmt.Sprintf("z%d m", t.z))   // move 0.5mm down
+		writeCmd(t, fmt.Sprintf("z%d m", t.z-2)) // move up & down so that the gear does not slip ;-)
+		writeCmd(t, fmt.Sprintf("z%d m", t.z))
 	}
 	for t.z > z {
-		t.z -= 5                              // tartget 0.5mm up
-		moveXySimple(t, t.x, t.y)             // compensate x drift
-		fmt.Fprintf(t.cmd, "a2 t%d m\n", t.z) // move 0.5mm up
+		t.z -= 5                                // tartget 0.5mm up
+		moveXySimple(t, t.x, t.y)               // compensate x drift
+		writeCmd(t, fmt.Sprintf("z%d m", t.z)) // move 0.5mm up
 	}
 
-	fmt.Fprintf(t.cmd, "s4000 d3000\n") // restore speed
+	writeCmd(t, "s4000 d3000") // restore speed
+    flushCmd(t)
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -916,8 +923,7 @@ func drawTrajectory(txtFile string, r int32) {
 		fmt.Printf("%d) %s\n", i, line)
 		var arg int32 = 0
 		var cmd byte = '_'
-		var axis int = 0
-		tar := []int32{x, y, z}
+		tx, ty, tz := x, y, z
 
 		for j := 0; j < len(line); j++ {
 			var c uint8 = line[j]
@@ -931,24 +937,24 @@ func drawTrajectory(txtFile string, r int32) {
 				//fmt.Printf("cmd=%c arg=%d\n", cmd, arg)
 				//fmt.Scanln()
 				switch cmd {
-				case 'a':
-					axis = int(arg)
-				case 't':
-					tar[axis] = arg
+				case 'x':
+					tx = arg
+                case 'y':
+                    ty = arg
+                case 'z':
+                    tz = arg
 				case 'm':
 					//tX, tY := x + (109 * (tar[0] - pos[0])) / 1250, y + (109 * (tar[1] - pos[1])) / 1250
-					tX, tY := tar[0], tar[1]
 
 					//fmt.Printf("tX=%d tY=%d\n", tX, tY)
 					//fmt.Scanln()
 
-					if inRect(x, y, w, h) && inRect(tX, tY, w, h) {
-						drawLine(ss, x, y, tX, tY)
-						doLine(ss, x, y, tX, tY, w, h, r, false, true)
+					if inRect(x, y, w, h) && inRect(tx, ty, w, h) {
+						drawLine(ss, x, y, tx, ty)
+						doLine(ss, x, y, tx, ty, w, h, r, false, true)
 						ss.Flip()
 					}
-					x, y = tX, tY
-					tar[0], tar[1], tar[2] = x, y, z
+					x, y, z = tx, ty, tz
 				}
 			}
 		}

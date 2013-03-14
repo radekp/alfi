@@ -27,7 +27,6 @@ long tx;                        // target pos
 long ty;
 long tz;
 
-int axis;                       // selected axis number
 int sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
 int tdelay;                     // target deleay between steps (smaller number is higher speed)
 int delayStep;                  // with this step is delay increased/decreased
@@ -331,7 +330,6 @@ void setup()
     cmdIndex = -1;
     cmdCount = -1;
     bufPos = -1;
-    axis = 0;
     cx = cy = cz = tx = ty = tz = 0;
     sdelay = 3600;
     tdelay = 2400;
@@ -451,16 +449,12 @@ void loop()
         limit = -1;
         return;
     }
-    if (cmd == 'a') {
-        axis = arg;
-    } else if (cmd == 't') {
-        if (axis == 0) {
-            tx = (1250 * arg) / 109;        // 5000 x-steps = 43.6 mm
-        } else if (axis == 1) {
-            ty = (1250 * arg) / 109;        // 5000 y-steps = 43.6 mm
-        } else {
-            tz = 847 * arg / 10;            // 874 steps = 1mm
-        }
+    if (cmd == 'x') {
+        tx = (1250 * arg) / 109;        // 5000 x-steps = 43.6 mm
+    } else if (cmd == 'y') {
+        ty = (1250 * arg) / 109;        // 5000 y-steps = 43.6 mm
+    } else if (cmd == 'z') {
+        tz = 847 * arg / 10;            // 874 steps = 1mm
     } else if (cmd == 's') {
         sdelay = arg;
     } else if (cmd == 'd') {
