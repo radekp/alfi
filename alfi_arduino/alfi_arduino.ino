@@ -455,11 +455,11 @@ void loop()
         axis = arg;
     } else if (cmd == 't') {
         if (axis == 0) {
-            tx = arg;
+            tx = (1250 * arg) / 109;        // 5000 x-steps = 43.6 mm
         } else if (axis == 1) {
-            ty = arg;
+            ty = (1250 * arg) / 109;        // 5000 y-steps = 43.6 mm
         } else {
-            tz = arg;
+            tz = 847 * arg / 10;            // 874 steps = 1mm
         }
     } else if (cmd == 's') {
         sdelay = arg;

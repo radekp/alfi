@@ -288,12 +288,16 @@ void delayMicroseconds(int)
     int w = mainWin->width();
     int h = mainWin->height();
 
+
+    // tx = (1250 * arg) / 109;        // 5000 x-steps = 43.6 mm
+    // tz = 847 * arg / 10;            // 874 steps = 1mm
+
     drawLine2(prnBits,
-              machineX / 4 + w / 8 + machineZ / 2,
-              machineY / 4 + h / 2 + machineZ / 2,
-              newMachineX / 4 + w / 8 + newMachineZ / 10,
-              newMachineY / 4 + h / 2 + newMachineZ / 10,
-              (newMachineZ % 31) + 1);
+              (109 * machineX) / 5000     + w / 8 + machineZ / 80,
+              (109 * machineY) / 5000     + h / 2 + machineZ / 80,
+              (109 * newMachineX) / 5000  + w / 8 + (newMachineZ + 0) / 80,
+              (109 * newMachineY) / 5000  + h / 2 + (newMachineZ + 0) / 80,
+              ((newMachineZ / 5) % 31) + 1);
 
     machineX = newMachineX;
     machineY = newMachineY;
