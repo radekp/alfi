@@ -94,7 +94,7 @@ static void MkPrnImg(QImage & img, int width, int height, uchar ** imgBits)
 MainWindow::MainWindow(QWidget * parent)
 :  
 QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/arduino", 115200),
-moveNo(0), cmdQueue(), milling(false), movesCount(0), curZ(0)
+  moveNo(0), cmdQueue(), milling(false), preview(false), curX(0), curY(0), curZ(0)
 {
     ui->setupUi(this);
     imgFile = QString::null;
@@ -293,11 +293,14 @@ void delayMicroseconds(int)
     // tz = 847 * arg / 10;            // 874 steps = 1mm
 
     drawLine2(prnBits,
-              (109 * machineX) / 5000     + w / 8 + machineZ / 80,
-              (109 * machineY) / 5000     + h / 2 + machineZ / 80,
-              (109 * newMachineX) / 5000  + w / 8 + (newMachineZ + 0) / 80,
-              (109 * newMachineY) / 5000  + h / 2 + (newMachineZ + 0) / 80,
+              (109 * machineX) / 5000     + w / 8 + machineZ / 100,
+              (109 * machineY) / 5000     + h / 2 + machineZ / 100,
+              (109 * newMachineX) / 5000  + w / 8 + (newMachineZ / 100 + 0),
+              (109 * newMachineY) / 5000  + h / 2 + (newMachineZ / 100 + 0),
               ((newMachineZ / 5) % 31) + 1);
+
+    if(machineZ != newMachineZ)
+        mainWin->setWindowTitle("Milling z=" + QString::number(machineZ));
 
     machineX = newMachineX;
     machineY = newMachineY;
@@ -369,6 +372,8 @@ void MainWindow::writeCmdQueue()
     }
     update();
     QApplication::processEvents();
+    if(preview)
+        return;
 
     qDebug() << "cmd=" << cmd;
     QByteArray cmdBytes = cmd.toAscii();
@@ -401,6 +406,9 @@ void MainWindow::writeCmdQueue()
 // Wait until arduino finishes all command sent
 void MainWindow::waitCmdDone()
 {
+    if(preview)
+        return;
+
     QString expect = "qdone" + QString::number(moveNo);
     qDebug() << "expect=" << expect;
     for (;;) {
@@ -448,10 +456,14 @@ void MainWindow::move(int x, int y, int z)
 {
     //qDebug() << "move " << x << "," << y < "," << z << "machine=" << ma;
 
-    QString cmd = "x" + QString::number((109 * machineX) / 1250 + x)
-            + " y" + QString::number((109 * machineY) / 1250 + y)
-            + " z" + QString::number(machineZ + z)
+    QString cmd = "x" + QString::number(curX + x)
+            + " y" + QString::number(curY + y)
+            + " z" + QString::number(curZ + z)
             + " m";
+
+    curX += x;
+    curY += y;
+    curZ += z;
 
     sendCmd(cmd, true);
 }
@@ -500,7 +512,7 @@ void MainWindow::on_bYPlus_clicked()
 
 void MainWindow::on_bZMinus_clicked()
 {
-    move(0, 0, 5);
+    move(0, 0, -5);
 }
 
 void MainWindow::on_bZPlus_clicked()
@@ -508,8 +520,13 @@ void MainWindow::on_bZPlus_clicked()
     move(0, 0, 5);
 }
 
-void MainWindow::on_bMill_clicked()
+void MainWindow::mill()
 {
+    if(curX != 0 || curY != 0 || curZ != 0 || machineX != 0 || machineY != 0 || machineZ != 0)
+    {
+        QMessageBox::critical(this, "Error", "Already moved, start from scratch!");
+    }
+
     milling = true;
 
     if(!QFile::exists("remaining.txt")) {
@@ -554,5 +571,18 @@ void MainWindow::on_bMill_clicked()
      }
     f.close();
     QFile::remove("remaining.txt");
+    milling = false;
     QMessageBox::information(this, "milling", "done!");
+}
+
+void MainWindow::on_bMill_clicked()
+{
+    preview = false;
+    mill();
+}
+
+void MainWindow::on_bPreview_clicked()
+{
+    preview = true;
+    mill();
 }

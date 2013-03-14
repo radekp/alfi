@@ -33,15 +33,6 @@ public:
     MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    enum Direction
-    {
-        DirectionNone,
-        DirectionUp,
-        DirectionDown,
-        DirectionLeft,
-        DirectionRight,
-    };
-
 protected:
     void paintEvent(QPaintEvent *);
 
@@ -55,8 +46,9 @@ public:
     int moveNo;
     QStringList cmdQueue;
     bool milling;
-    int moves[MILL_LOG_LEN];
-    int movesCount;
+    bool preview;
+    int curX;           // cursor x, y, z
+    int curY;
     int curZ;
 
     void sendCmd(QString cmd, bool flush = true);
@@ -70,6 +62,7 @@ public:
                    qint64 & lastX, qint64 & lastY, bool firstPoint = true);
 
     void moveZ(int z, int & driftX);
+    void mill();
 
 private slots:
     void on_bMill_clicked();
@@ -81,6 +74,7 @@ private slots:
     void on_bXMinus_clicked();
     void on_bSendSerial_clicked();
     void readSerial();
+    void on_bPreview_clicked();
 };
 
 class Sleeper : public QThread
