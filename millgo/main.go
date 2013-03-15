@@ -494,6 +494,7 @@ func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 		return res
 	}
 
+	// Bonus if model is nearby
 	for x, y, okR := inRadiusBegin(cx, cy, r+1, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r+1, w, h) {
 		if inRadius(x, y, cx, cy, r) {
 			continue // skip until just the circle outline
@@ -501,6 +502,7 @@ func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 		val := sdlGet(x, y, ss)
 		if (val & ColModel) != 0 { // nearby to to model
 			res *= 2
+			break
 		}
 	}
 
@@ -917,6 +919,7 @@ func drawTrajectory(txtFile string, r int32) {
 	}
 	lines := strings.Split(string(content), "\n")
 
+    trajLen := int32(0)
 	x, y, z := int32(0), int32(0), int32(0)
 	for i := 0; i < len(lines); i++ {
 		line := lines[i] + "\n"
@@ -953,6 +956,7 @@ func drawTrajectory(txtFile string, r int32) {
 						drawLine(ss, x, y, tx, ty)
 						doLine(ss, x, y, tx, ty, w, h, r, false, true)
 						ss.Flip()
+                        trajLen += max(abs32(x - tx), abs32(y - ty))
 					}
 					x, y, z = tx, ty, tz
 				}
@@ -960,7 +964,7 @@ func drawTrajectory(txtFile string, r int32) {
 		}
 	}
 	for {
-		fmt.Printf("done!\n")
+		fmt.Printf("done! trajectory len=%dmm\n", trajLen/10)
 		fmt.Scanln()
 		ss.Flip()
 	}
