@@ -577,12 +577,10 @@ void MainWindow::mill()
 
 void MainWindow::on_bMill_clicked()
 {
-    preview = false;
     mill();
 }
 
-void MainWindow::on_bPreview_clicked()
+void MainWindow::on_cbPreview_toggled(bool checked)
 {
-    preview = true;
-    mill();
+    preview = checked;
 }

@@ -485,7 +485,6 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 	}
 	return count
 }
-
 // Like removeCount() but add some point to favourize points close to model
 func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 
