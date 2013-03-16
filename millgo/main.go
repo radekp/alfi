@@ -456,17 +456,22 @@ func inRadiusNext(x, y, cx, cy, r, w, h int32) (int32, int32, bool) {
 }
 
 // Remove material at x,y in radius r. The args w and h are surface dimensions
-func removeMaterial(ss *sdl.Surface, w, h, cx, cy, r int32) {
+func removeMaterial(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) {
 
 	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
 		sdlSet(x, y, ColRemoved, ss)
 	}
 	sdlSet(cx, cy, ColVisited, ss)
+    
+    // Invalidate remove count cache
+    for x, y, okR := inRadiusBegin(cx, cy, r * 2, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r * 2, w, h) {
+        rmc[x][y] = -2
+    }
 }
 
 // Return volume of material that would be removed at given point. Return -1 if
 // model part would be removed
-func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
+func removeCount(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 
 	if !inRect(cx, cy, w, h) {
 		return -1
@@ -486,9 +491,9 @@ func removeCount(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 	return count
 }
 // Like removeCount() but add some point to favourize points close to model
-func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
+func removeCountFavClose(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 
-	res := removeCount(ss, w, h, cx, cy, r)
+	res := removeCount(ss, rmc, w, h, cx, cy, r)
 	if res < 0 {
 		return res
 	}
@@ -510,7 +515,7 @@ func removeCountFavClose(ss *sdl.Surface, w, h, cx, cy, r int32) int32 {
 
 // Line from x,y to target tX,tY. Moves until model part is not removed
 // or target is reached. Returns new coordinates
-func doLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32, draw, rmMaterial bool) (int32, int32) {
+func doLine(ss *sdl.Surface, rmc [][]int32, x, y, tX, tY, w, h, r int32, draw, rmMaterial bool) (int32, int32) {
 
 	// Bresenham
 	var cx int32 = x
@@ -542,11 +547,11 @@ func doLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32, draw, rmMaterial bool)
 	for {
 		if draw {
 			sdlSet(cx, cy, ColDebug, ss)
-		} else if removeCount(ss, w, h, cx, cy, r) < 0 {
+		} else if removeCount(ss, rmc, w, h, cx, cy, r) < 0 {
 			return cx, cy
 		}
 		if rmMaterial {
-			removeMaterial(ss, w, h, cx, cy, r)
+			removeMaterial(ss, rmc, w, h, cx, cy, r)
 		}
 
 		if (cx == tX) && (cy == tY) {
@@ -565,8 +570,8 @@ func doLine(ss *sdl.Surface, x, y, tX, tY, w, h, r int32, draw, rmMaterial bool)
 	return tX, tY
 }
 
-func drawLine(ss *sdl.Surface, x, y, tX, tY int32) {
-	doLine(ss, x, y, tX, tY, -1, -1, 0, true, false)
+func drawLine(ss *sdl.Surface, rmc [][]int32, x, y, tX, tY int32) {
+	doLine(ss, rmc, x, y, tX, tY, -1, -1, 0, true, false)
 }
 
 // Is count (in given dir) best?
@@ -610,7 +615,7 @@ func bestDist(d []int32) (dir int, dist int32) {
 
 // Set distance of nearby points (from point ax,ay -> bx,by) in given dir (0=N,
 // 1=S, 2=E, 3=W)
-func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, currBestDist int32, done bool) bool {
+func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, currBestDist int32, done bool) bool {
 
 	if !inRect(bX, bY, w, h) {
 		return done
@@ -627,7 +632,7 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
 	dB := dist[bX][bY]
 	rmCount := dB[8]
 	if rmCount == -2 {
-		rmCount = removeCount(ss, w, h, bX, bY, r)
+		rmCount = removeCount(ss, rmc, w, h, bX, bY, r)
 		dB[8] = rmCount
 	}
 
@@ -644,7 +649,7 @@ func setDist(ss *sdl.Surface, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, cu
 }
 
 // Find path from cX,cY to tX,tY so that no part of model is removed
-func findPath(ss *sdl.Surface, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
+func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 
 	//fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d removeCount=%d\n", cX, cY, tX, tY, removeCount(ss, w, h, tX, tY, r))
 
@@ -684,7 +689,7 @@ func findPath(ss *sdl.Surface, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 		var centerX, centerY int32
 
 		undrawBlue(ss, w, h)
-		drawLine(ss, cX, cY, tX, tY)
+		drawLine(ss, rmc, cX, cY, tX, tY)
 
 		if round%5 == 0 {
 			done = true
@@ -720,10 +725,10 @@ func findPath(ss *sdl.Surface, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 			fmt.Printf("x=%d y=%d a=%d done=%t currBestDist=%d\n", x, y, a, done, currBestDist)
 			fmt.Scanln()*/
 
-			done = setDist(ss, dist, x, y, x, y+1, dirN, w, h, r, currBestDist, done)
-			done = setDist(ss, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done)
-			done = setDist(ss, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done)
-			done = setDist(ss, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x, y+1, dirN, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done)
 			//done = setDist(ss, dist, x, y, x+1, y+1, dirSE, w, h, r, currBestDist, done)
 			//done = setDist(ss, dist, x, y, x-1, y-1, dirNW, w, h, r, currBestDist, done)
 			//done = setDist(ss, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
@@ -764,7 +769,7 @@ func findPath(ss *sdl.Surface, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 		}
 
 		//fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
-		removeMaterial(ss, w, h, x, y, r)
+		removeMaterial(ss, rmc, w, h, x, y, r)
 		sdlSet(x, y, ColDebug, ss)
 		ss.Flip()
 	}
@@ -773,7 +778,7 @@ func findPath(ss *sdl.Surface, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 }
 
 // Same as find2Remove but tries to find point on direct line from curr point
-func findAndRemove(ss *sdl.Surface, tc *Tco, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
+func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
 
 	undrawDebug(ss, w, h)
 	found := false
@@ -781,7 +786,7 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, currX, currY, w, h, r int32) (bool,
 
 	for tX, tY, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; tX, tY, a, ok = nearRectNext(currX, currY, tX, tY, a, w, h) {
 
-		if removeCount(ss, w, h, tX, tY, r) <= 0 {
+		if removeCount(ss, rmc, w, h, tX, tY, r) <= 0 {
 			continue
 		}
 		if !found {
@@ -790,27 +795,38 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, currX, currY, w, h, r int32) (bool,
 		}
 
 		// Straight line
-		x, y := doLine(ss, currX, currY, tX, tY, w, h, r, false, false)
+		x, y := doLine(ss, rmc, currX, currY, tX, tY, w, h, r, false, false)
 		if x == tX && y == tY {
-			doLine(ss, currX, currY, tX, tY, w, h, r, false, true)
+			doLine(ss, rmc, currX, currY, tX, tY, w, h, r, false, true)
 			moveXy(tc, tX, tY)
 			return true, true, tX, tY
 		}
 		if tX%4 == 0 && tY%4 == 0 {
 			sdlSet(tX, tY, ColDebug, ss)
-			drawLine(ss, currX, currY, tX, tY)
+			drawLine(ss, rmc, currX, currY, tX, tY)
 			ss.Flip()
 		}
 	}
 	//fmt.Printf("findAndRemove - no straight line\n")
 
 	if found {
-		if findPath(ss, tc, currX, currY, firstTx, firstTy, w, h, r) {
+		if findPath(ss, rmc, tc, currX, currY, firstTx, firstTy, w, h, r) {
 			return true, true, firstTx, firstTy
 		}
 	}
 
 	return found, false, firstTx, firstTy
+}
+
+func makeRmc(w, h int32) [][]int32 {
+    rmc := make([][]int32, w)
+    for x := range rmc {
+        rmc[x] = make([]int32, h)
+        for y := range rmc[x] {
+            rmc[x][y] = -2              // -2 means not computed yet or invalidated
+        }
+    }
+    return rmc
 }
 
 // Compute milling trajectory, before exit the position is always returned to
@@ -823,6 +839,9 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	drawModel(img, ss, r+1, r+1, w, h)  // draw the model with green so that we see if we are removing correct parts
 	w, h = w+2*(r+1), h+2*(r+1)
 
+    // Cache for removeCount()
+    rmc := makeRmc(w, h)
+    
 	var x, y int32 = 0, 0
 
 	moveZ(tc, z)
@@ -833,7 +852,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	// remaining parts
 	for {
 
-		found, removed, tX, tY := findAndRemove(ss, tc, x, y, w, h, r)
+		found, removed, tX, tY := findAndRemove(ss, tc, rmc, x, y, w, h, r)
 
 		//fmt.Printf("findAndRemove x=%d y=%d tX=%d tY=%d found=%t removed=%t\n",
 		//         x, y, tX, tY, found, removed)
@@ -852,19 +871,19 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 
 		x, y = tX, tY
 
-		removeMaterial(ss, w, h, x, y, r)
+		removeMaterial(ss, rmc, w, h, x, y, r)
 		ss.Flip()
 
 		for {
-			countN := removeCountFavClose(ss, w, h, x, y-1, r)
-			countS := removeCountFavClose(ss, w, h, x, y+1, r)
-			countE := removeCountFavClose(ss, w, h, x+1, y, r)
-			countW := removeCountFavClose(ss, w, h, x-1, y, r)
+			countN := removeCountFavClose(ss, rmc, w, h, x, y-1, r)
+			countS := removeCountFavClose(ss, rmc, w, h, x, y+1, r)
+			countE := removeCountFavClose(ss, rmc, w, h, x+1, y, r)
+			countW := removeCountFavClose(ss, rmc, w, h, x-1, y, r)
 
-			countNE := removeCountFavClose(ss, w, h, x+1, y-1, r)
-			countSE := removeCountFavClose(ss, w, h, x+1, y+1, r)
-			countSW := removeCountFavClose(ss, w, h, x-1, y+1, r)
-			countNW := removeCountFavClose(ss, w, h, x-1, y-1, r)
+			countNE := removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
+			countSE := removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
+			countSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
+			countNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
 
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
@@ -889,7 +908,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 				break
 			}
 
-			removeMaterial(ss, w, h, x, y, r)
+			removeMaterial(ss, rmc, w, h, x, y, r)
 			ss.Flip()
 		}
 	}
@@ -912,6 +931,9 @@ func drawTrajectory(txtFile string, r int32) {
 	ss := sdlInit(w, h)            // sdl surface - with radius+1 border
 	sdlFill(ss, w, h, ColMaterial) // we have all material in the begining then we remove the parts so that just model is left
 
+    // Cache for removeCount()
+    rmc := makeRmc(w, h)
+    
 	content, err := ioutil.ReadFile(txtFile)
 	if err != nil {
 		panic(err)
@@ -952,8 +974,8 @@ func drawTrajectory(txtFile string, r int32) {
 					//fmt.Scanln()
 
 					if inRect(x, y, w, h) && inRect(tx, ty, w, h) {
-						drawLine(ss, x, y, tx, ty)
-						doLine(ss, x, y, tx, ty, w, h, r, false, true)
+						drawLine(ss, rmc, x, y, tx, ty)
+						doLine(ss, rmc, x, y, tx, ty, w, h, r, false, true)
 						ss.Flip()
                         trajLen += max(abs32(x - tx), abs32(y - ty))
 					}
