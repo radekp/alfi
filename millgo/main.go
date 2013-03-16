@@ -458,15 +458,18 @@ func inRadiusNext(x, y, cx, cy, r, w, h int32) (int32, int32, bool) {
 // Remove material at x,y in radius r. The args w and h are surface dimensions
 func removeMaterial(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) {
 
+    // Invalidate nearby remove count cache
+    for x, y, okR := inRadiusBegin(cx, cy, r * 2, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r * 2, w, h) {
+        if rmc[x][y] > 0 {
+            rmc[x][y] = -2
+        }
+    }
+    
 	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
 		sdlSet(x, y, ColRemoved, ss)
 	}
 	sdlSet(cx, cy, ColVisited, ss)
-    
-    // Invalidate remove count cache
-    for x, y, okR := inRadiusBegin(cx, cy, r * 2, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r * 2, w, h) {
-        rmc[x][y] = -2
-    }
+    rmc[cx][cy] = 0
 }
 
 // Return volume of material that would be removed at given point. Return -1 if
@@ -477,10 +480,16 @@ func removeCount(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 		return -1
 	}
 
+	cached := rmc[cx][cy]
+	if cached != -2 {
+        return cached
+    }
+
 	var count int32 = 0
 	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
 		val := sdlGet(x, y, ss)
 		if (val & ColModel) != 0 { // part of model
+            rmc[cx][cy] = -1
 			return -1
 		}
 		if (val & ColRemoved) != 0 { // already removed
@@ -488,6 +497,8 @@ func removeCount(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 		}
 		count++
 	}
+
+	rmc[cx][cy] = count
 	return count
 }
 // Like removeCount() but add some point to favourize points close to model
@@ -640,7 +651,9 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 		if aX%4 == 0 && aY%4 == 0 {
 			// fmt.Printf("setDist x=%d y=%d value=%d currBestDist=%d\n", aX, aY, best, currBestDist)
 			sdlSet(aX, aY, ColDebug, ss)
-			ss.Flip()
+            if aX % r == 0 && aY %r == 0 {
+                ss.Flip()
+            }
 		}
 		dB[dir] = best - rmCount // favourize paths that remove more material
 		return false
@@ -801,7 +814,7 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, currX, currY, w, h, 
 			moveXy(tc, tX, tY)
 			return true, true, tX, tY
 		}
-		if tX%4 == 0 && tY%4 == 0 {
+		if tX%r == 0 && tY%r == 0 {
 			sdlSet(tX, tY, ColDebug, ss)
 			drawLine(ss, rmc, currX, currY, tX, tY)
 			ss.Flip()
@@ -880,10 +893,10 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 			countE := removeCountFavClose(ss, rmc, w, h, x+1, y, r)
 			countW := removeCountFavClose(ss, rmc, w, h, x-1, y, r)
 
-			countNE := removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
-			countSE := removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
-			countSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
-			countNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
+			countNE := int32(-1)//removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
+			countSE := int32(-1)//removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
+			countSW := int32(-1)//removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
+			countNW := int32(-1)//removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
 
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
