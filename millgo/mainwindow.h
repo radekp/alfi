@@ -75,6 +75,8 @@ private slots:
     void on_bSendSerial_clicked();
     void readSerial();
     void on_cbPreview_toggled(bool checked);
+    void on_bDriftx_clicked();
+    void on_bDriftxAdd_clicked();
 };
 
 class Sleeper : public QThread

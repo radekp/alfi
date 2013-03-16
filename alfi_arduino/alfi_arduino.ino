@@ -18,10 +18,16 @@
 */
 
 #define MAX_CMDS 128
+#define MAX_DRIFTS 64
 
 long cx;                        // current pos
 long cy;
 long cz;
+
+long driftsZ[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
+long driftsX[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
+int lastDrift;
+long currDriftX;
 
 long tx;                        // target pos
 long ty;
@@ -34,7 +40,7 @@ long delayX;                     // current delay on x
 long delayY;                     // current delay on y
 long delayZ;                     // current delay on z
 
-char cmd;                       // current command (a=axis, t=tpos, s=sdelay, d=tdelay, z=delay step, m=start motion, q=queue start, e=execute queue)
+char cmd;                       // current command (a=axis, x,y,z=pos, r=driftx in current z, s=sdelay, d=tdelay, z=delay step, m=start motion, set current pos, q=queue start, e=execute queue)
 long arg;                        // argument for current commands
 
 char cmds[MAX_CMDS];            // queued commands
@@ -252,6 +258,18 @@ void moveZ()
         break;                  // 11 13
     }
     delayZ = delayAndCheckLimit(delayZ, A1, 2);
+
+    int i;
+    int bestDelta = 0xffff;
+    int delta;
+    for(i = 0; i < lastDrift; i++) {
+        delta = abs(driftsZ[i] - cz);
+        if(delta > bestDelta)
+            continue;
+
+        bestDelta = delta;
+        currDriftX = driftsX[i];
+    }
 }
 
 // draw line using Bresenham's line algorithm
@@ -331,6 +349,10 @@ void setup()
     cmdCount = -1;
     bufPos = -1;
     cx = cy = cz = tx = ty = tz = 0;
+    memset(driftsX, 0, MAX_DRIFTS);
+    memset(driftsZ, 0, MAX_DRIFTS);
+    currDriftX = 0;
+    lastDrift = -1;
     sdelay = 3600;
     tdelay = 2400;
     delayStep = 50;
@@ -421,7 +443,7 @@ void loop()
     // motion handling
     if (cmd == 'M') {
         if (cx != tx || cy != ty) {
-            drawLine(cx, cy, tx, ty);
+            drawLine(cx, cy, tx + currDriftX, ty);
         }
         while (cz < tz) {
             cz++;
@@ -455,6 +477,18 @@ void loop()
         ty = (1250 * arg) / 109;        // 5000 y-steps = 43.6 mm
     } else if (cmd == 'z') {
         tz = (847 * arg) / 10;            // 874 steps = 1mm
+    } else if (cmd == 'c') {
+        cx = tx;
+        cy = ty;
+        cz = cz;
+    } else if (cmd == 'r') {
+        if(arg >= MAX_DRIFTS) {
+            Serial.print("max drifts reached!");
+        } else {
+            lastDrift = arg;
+            driftsX[lastDrift] = tx;
+            driftsZ[lastDrift] = tz;
+        }
     } else if (cmd == 's') {
         sdelay = arg;
     } else if (cmd == 'd') {

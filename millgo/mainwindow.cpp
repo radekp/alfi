@@ -100,6 +100,7 @@ QMainWindow(parent), ui(new Ui::MainWindow), port("/dev/arduino", 115200),
     imgFile = QString::null;
     if (!port.open(QFile::ReadWrite)) {
         ui->tbSerial->setText(port.errorString());
+        ui->cbPreview->setChecked(true);
     }
     MkPrnImg(prn, PRN_WIDTH, PRN_HEIGHT, &prnBits);
     readSerial();
@@ -288,15 +289,14 @@ void delayMicroseconds(int)
     int w = mainWin->width();
     int h = mainWin->height();
 
-
     // tx = (1250 * arg) / 109;        // 5000 x-steps = 43.6 mm
     // tz = 847 * arg / 10;            // 874 steps = 1mm
 
     drawLine2(prnBits,
-              (109 * machineX) / 5000     + w / 8 + machineZ / 100,
-              (109 * machineY) / 5000     + h / 2 + machineZ / 100,
-              (109 * newMachineX) / 5000  + w / 8 + (newMachineZ / 100 + 0),
-              (109 * newMachineY) / 5000  + h / 2 + (newMachineZ / 100 + 0),
+              (109 * machineX) / 5000     + w / 8 + machineZ / 30,
+              (109 * machineY) / 5000     + h / 4 + machineZ / 30,
+              (109 * newMachineX) / 5000  + w / 8 + (newMachineZ / 30 + 0),
+              (109 * newMachineY) / 5000  + h / 4 + (newMachineZ / 30 + 0),
               ((newMachineZ / 5) % 31) + 1);
 
     if(machineZ != newMachineZ)
@@ -465,6 +465,8 @@ void MainWindow::move(int x, int y, int z)
     curY += y;
     curZ += z;
 
+    ui->lPos->setText(QString::number(curX) + "," + QString::number(curY) + "," + QString::number(curZ));
+
     sendCmd(cmd, true);
 }
 
@@ -583,4 +585,28 @@ void MainWindow::on_bMill_clicked()
 void MainWindow::on_cbPreview_toggled(bool checked)
 {
     preview = checked;
+}
+
+void MainWindow::on_bDriftx_clicked()
+{
+    QString text = ui->tbDriftx->text();
+    if(text.length() == 0)
+    {
+        return;
+    }
+    QStringList list = text.split(' ');
+    for(int i = 0; i < list.count(); i++)
+    {
+        QStringList xz = list.at(i).split(',');
+        sendCmd("z" + xz.at(0) + " x" + xz.at(1) + " r" + QString::number(i), true);
+    }
+}
+
+void MainWindow::on_bDriftxAdd_clicked()
+{
+    QString text = ui->tbDriftx->text();
+    if(text.length() > 0)
+        text += " ";
+    text += QString::number(cz) + "," + QString::number(cx);
+    ui->tbDriftx->setText(text);
 }
