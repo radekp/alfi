@@ -648,10 +648,10 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 	}
 
 	if best < dB[dir] && rmCount != -1 { // part of model would be removed
-		if aX%4 == 0 && aY%4 == 0 {
+		if aX&7 == 0 && aY&7 == 0 {
 			// fmt.Printf("setDist x=%d y=%d value=%d currBestDist=%d\n", aX, aY, best, currBestDist)
 			sdlSet(aX, aY, ColDebug, ss)
-            if aX % r == 0 && aY %r == 0 {
+            if aX&63 == 0 && aY&63 == 0 {
                 ss.Flip()
             }
 		}
@@ -814,10 +814,12 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, currX, currY, w, h, 
 			moveXy(tc, tX, tY)
 			return true, true, tX, tY
 		}
-		if tX%r == 0 && tY%r == 0 {
+		if tX&15 == 0 && tY&15 == 0 {
 			sdlSet(tX, tY, ColDebug, ss)
 			drawLine(ss, rmc, currX, currY, tX, tY)
-			ss.Flip()
+            if tX&63 == 0 && tY&63 == 0 {
+                ss.Flip()
+            }
 		}
 	}
 	//fmt.Printf("findAndRemove - no straight line\n")
