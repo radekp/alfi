@@ -645,11 +645,7 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 	}
 
 	dB := dist[bX][bY]
-	rmCount := dB[8]
-	if rmCount == -2 {
-		rmCount = removeCount(ss, rmc, w, h, bX, bY, r)
-		dB[8] = rmCount
-	}
+	rmCount := removeCount(ss, rmc, w, h, bX, bY, r)
 
 	if best < dB[dir] && rmCount != -1 { // part of model would be removed
 		if aX&7 == 0 && aY&7 == 0 {
@@ -668,7 +664,7 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 // Find path from cX,cY to tX,tY so that no part of model is removed
 func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 
-	//fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d removeCount=%d\n", cX, cY, tX, tY, removeCount(ss, w, h, tX, tY, r))
+	fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d\n", cX, cY, tX, tY)
 
 	// The algorithm is flood-fill like:
 	// For earch pixel we remember shortest distance to target point in 4
@@ -689,9 +685,9 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 		dist[x] = make([][]int32, h)
 		for y := range dist[x] {
 			if x == tx && y == ty {
-				dist[x][y] = []int32{0, 0, 0, 0, 0, 0, 0, 0, -2} // value for each dir + removeCount for given point
+				dist[x][y] = []int32{0, 0, 0, 0, 0, 0, 0, 0} // value for each dir + removeCount for given point
 			} else {
-				dist[x][y] = []int32{DistMax, DistMax, DistMax, DistMax, DistMax, DistMax, DistMax, DistMax, -2}
+				dist[x][y] = []int32{DistMax, DistMax, DistMax, DistMax, DistMax, DistMax, DistMax, DistMax}
 			}
 		}
 	}
@@ -790,7 +786,7 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 			x, y = moveXy(tc, x+1, y+1)
 		}
 
-		//fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
+		fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
 		removeMaterial(ss, rmc, w, h, x, y, r)
 		sdlSet(x, y, ColDebug, ss)
 		ss.Flip()
