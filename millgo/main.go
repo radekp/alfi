@@ -82,7 +82,7 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 	//
 	// 5000 x-steps = 43.6 mm
 	// 48           =  drifxX
-	newMx -= 41856 * t.z / 100000 // approx 0.41856mm on 1mm
+	//newMx -= 41856 * t.z / 100000 // approx 0.41856mm on 1mm
 
 	if newMx == t.mX && newMy == t.mY {
 		return x, y
