@@ -469,6 +469,10 @@ func removeMaterial(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) {
 		sdlSet(x, y, ColRemoved, ss)
 	}
 	sdlSet(cx, cy, ColVisited, ss)
+    if cx >= w || cx < 0 || cy >= h || cy < 0 {
+        fmt.Printf("\ncx=%d cy=%d\n", cx, cy)
+        fmt.Scanln()
+    }
     rmc[cx][cy] = 0
 }
 
@@ -724,6 +728,11 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 			if rr4*abs32(x-cX) >= currBestDist || rr4*abs32(y-cY) >= currBestDist {
 				continue
 			}
+			
+/*			if round < 32 && a > 8 {
+                done = false
+                break
+            }*/
 
 			/*for i := tY - 3; i <= tY+3; i++ {
 				for j := tX - 3; j <= tX+3; j++ {
@@ -742,10 +751,10 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 			done = setDist(ss, rmc, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done)
 			done = setDist(ss, rmc, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done)
 			done = setDist(ss, rmc, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done)
-			//done = setDist(ss, dist, x, y, x+1, y+1, dirSE, w, h, r, currBestDist, done)
-			//done = setDist(ss, dist, x, y, x-1, y-1, dirNW, w, h, r, currBestDist, done)
-			//done = setDist(ss, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
-			//done = setDist(ss, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
+			//done = setDist(ss, rmc, dist, x, y, x+1, y+1, dirSE, w, h, r, currBestDist, done)
+			//done = setDist(ss, rmc, dist, x, y, x-1, y-1, dirNW, w, h, r, currBestDist, done)
+			//done = setDist(ss, rmc, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
+			//done = setDist(ss, rmc, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
 		}
 
 		//if currBestDist < DistMax {
@@ -794,40 +803,21 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, currX, currY, w, h, r int32) (bool, bool, int32, int32) {
 
 	undrawDebug(ss, w, h)
-	found := false
 	firstTx, firstTy := currX, currY
-
+    found := false
+	
 	for tX, tY, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; tX, tY, a, ok = nearRectNext(currX, currY, tX, tY, a, w, h) {
 
-		if removeCount(ss, rmc, w, h, tX, tY, r) <= 0 {
-			continue
-		}
-		if !found {
-			found = true
+		if removeCount(ss, rmc, w, h, tX, tY, r) > 0 {
 			firstTx, firstTy = tX, tY
-		}
-
-		// Straight line
-		x, y := doLine(ss, rmc, currX, currY, tX, tY, w, h, r, false, false)
-		if x == tX && y == tY {
-			doLine(ss, rmc, currX, currY, tX, tY, w, h, r, false, true)
-			moveXy(tc, tX, tY)
-			return true, true, tX, tY
-		}
-		if tX&15 == 0 && tY&15 == 0 {
-			sdlSet(tX, tY, ColDebug, ss)
-			drawLine(ss, rmc, currX, currY, tX, tY)
-            if tX&63 == 0 && tY&63 == 0 {
-                ss.Flip()
-            }
+			found = true
+			break
 		}
 	}
 	//fmt.Printf("findAndRemove - no straight line\n")
 
-	if found {
-		if findPath(ss, rmc, tc, currX, currY, firstTx, firstTy, w, h, r) {
-			return true, true, firstTx, firstTy
-		}
+	if found && findPath(ss, rmc, tc, currX, currY, firstTx, firstTy, w, h, r) {
+		return true, true, firstTx, firstTy
 	}
 
 	return found, false, firstTx, firstTy
@@ -890,15 +880,15 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		ss.Flip()
 
 		for {
-			countN := removeCountFavClose(ss, rmc, w, h, x, y-1, r)
-			countS := removeCountFavClose(ss, rmc, w, h, x, y+1, r)
-			countE := removeCountFavClose(ss, rmc, w, h, x+1, y, r)
-			countW := removeCountFavClose(ss, rmc, w, h, x-1, y, r)
+			countN := removeCount(ss, rmc, w, h, x, y-1, r)
+			countS := removeCount(ss, rmc, w, h, x, y+1, r)
+			countE := removeCount(ss, rmc, w, h, x+1, y, r)
+			countW := removeCount(ss, rmc, w, h, x-1, y, r)
 
-			countNE := int32(-1)//removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
-			countSE := int32(-1)//removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
-			countSW := int32(-1)//removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
-			countNW := int32(-1)//removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
+			countNE := removeCount(ss, rmc, w, h, x+1, y-1, r) / 2
+			countSE := removeCount(ss, rmc, w, h, x+1, y+1, r) / 2
+			countSW := removeCount(ss, rmc, w, h, x-1, y+1, r) / 2
+			countNW := removeCount(ss, rmc, w, h, x-1, y-1, r) / 2
 
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
