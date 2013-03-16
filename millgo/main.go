@@ -885,15 +885,15 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		ss.Flip()
 
 		for {
-			countN := removeCount(ss, rmc, w, h, x, y-1, r)
-			countS := removeCount(ss, rmc, w, h, x, y+1, r)
-			countE := removeCount(ss, rmc, w, h, x+1, y, r)
-			countW := removeCount(ss, rmc, w, h, x-1, y, r)
+			countN := removeCountFavClose(ss, rmc, w, h, x, y-1, r)
+			countS := removeCountFavClose(ss, rmc, w, h, x, y+1, r)
+			countE := removeCountFavClose(ss, rmc, w, h, x+1, y, r)
+			countW := removeCountFavClose(ss, rmc, w, h, x-1, y, r)
 
-			countNE := removeCount(ss, rmc, w, h, x+1, y-1, r) / 2
-			countSE := removeCount(ss, rmc, w, h, x+1, y+1, r) / 2
-			countSW := removeCount(ss, rmc, w, h, x-1, y+1, r) / 2
-			countNW := removeCount(ss, rmc, w, h, x-1, y-1, r) / 2
+			countNE := removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
+			countSE := removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
+			countSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
+			countNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
 
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
