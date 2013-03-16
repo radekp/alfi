@@ -50,22 +50,22 @@ type Tco struct {
 }
 
 func flushCmd(t *Tco) {
-    if t.cmdLen > 0 {
-        fmt.Fprint(t.cmd, "\n")
-        t.cmdLen = 0
-    }
+	if t.cmdLen > 0 {
+		fmt.Fprint(t.cmd, "\n")
+		t.cmdLen = 0
+	}
 }
 
 func writeCmd(t *Tco, cmd string) {
-    
-    if t.cmdLen+len(cmd) >= 254 {
-        flushCmd(t)
-    } else if t.cmdLen > 0 {
-            fmt.Fprint(t.cmd, " ")
-            t.cmdLen++
-    }
-    fmt.Fprint(t.cmd, cmd)
-    t.cmdLen += len(cmd)
+
+	if t.cmdLen+len(cmd) >= 254 {
+		flushCmd(t)
+	} else if t.cmdLen > 0 {
+		fmt.Fprint(t.cmd, " ")
+		t.cmdLen++
+	}
+	fmt.Fprint(t.cmd, cmd)
+	t.cmdLen += len(cmd)
 }
 
 // Move stepper motor from A to B (in pixel coordinates, 1pixel=0.1mm)
@@ -82,7 +82,7 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 	//
 	// 5000 x-steps = 43.6 mm
 	// 48           =  drifxX
-	newMx -= 41856 * t.z / 100000             // approx 0.41856mm on 1mm
+	newMx -= 41856 * t.z / 100000 // approx 0.41856mm on 1mm
 
 	if newMx == t.mX && newMy == t.mY {
 		return x, y
@@ -150,13 +150,13 @@ func moveZ(t *Tco, z int32) {
 		writeCmd(t, fmt.Sprintf("z%d m", t.z))
 	}
 	for t.z > z {
-		t.z -= 5                                // tartget 0.5mm up
-		moveXySimple(t, t.x, t.y)               // compensate x drift
+		t.z -= 5                               // tartget 0.5mm up
+		moveXySimple(t, t.x, t.y)              // compensate x drift
 		writeCmd(t, fmt.Sprintf("z%d m", t.z)) // move 0.5mm up
 	}
 
 	writeCmd(t, "s4000 d3000") // restore speed
-    flushCmd(t)
+	flushCmd(t)
 }
 
 // Used colors. We start with ColMaterial, then we draw the model using
@@ -458,22 +458,22 @@ func inRadiusNext(x, y, cx, cy, r, w, h int32) (int32, int32, bool) {
 // Remove material at x,y in radius r. The args w and h are surface dimensions
 func removeMaterial(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) {
 
-    // Invalidate nearby remove count cache
-    for x, y, okR := inRadiusBegin(cx, cy, r * 2, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r * 2, w, h) {
-        if rmc[x][y] > 0 {
-            rmc[x][y] = -2
-        }
-    }
-    
+	// Invalidate nearby remove count cache
+	for x, y, okR := inRadiusBegin(cx, cy, r*2, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r*2, w, h) {
+		if rmc[x][y] > 0 {
+			rmc[x][y] = -2
+		}
+	}
+
 	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
 		sdlSet(x, y, ColRemoved, ss)
 	}
 	sdlSet(cx, cy, ColVisited, ss)
-    if cx >= w || cx < 0 || cy >= h || cy < 0 {
-        fmt.Printf("\ncx=%d cy=%d\n", cx, cy)
-        fmt.Scanln()
-    }
-    rmc[cx][cy] = 0
+	if cx >= w || cx < 0 || cy >= h || cy < 0 {
+		fmt.Printf("\ncx=%d cy=%d\n", cx, cy)
+		fmt.Scanln()
+	}
+	rmc[cx][cy] = 0
 }
 
 // Return volume of material that would be removed at given point. Return -1 if
@@ -486,14 +486,14 @@ func removeCount(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 
 	cached := rmc[cx][cy]
 	if cached != -2 {
-        return cached
-    }
+		return cached
+	}
 
 	var count int32 = 0
 	for x, y, okR := inRadiusBegin(cx, cy, r, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r, w, h) {
 		val := sdlGet(x, y, ss)
 		if (val & ColModel) != 0 { // part of model
-            rmc[cx][cy] = -1
+			rmc[cx][cy] = -1
 			return -1
 		}
 		if (val & ColRemoved) != 0 { // already removed
@@ -505,6 +505,7 @@ func removeCount(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 	rmc[cx][cy] = count
 	return count
 }
+
 // Like removeCount() but add some point to favourize points close to model
 func removeCountFavClose(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 
@@ -606,9 +607,9 @@ var (
 )
 
 func dumpDists(d []int32) {
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 8; i++ {
 		if d[i] != DistMax {
-			fmt.Printf("%2d ", d[0])
+			fmt.Printf("%2d ", d[i])
 		} else {
 			fmt.Printf("   ")
 		}
@@ -651,9 +652,9 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 		if aX&7 == 0 && aY&7 == 0 {
 			// fmt.Printf("setDist x=%d y=%d value=%d currBestDist=%d\n", aX, aY, best, currBestDist)
 			sdlSet(aX, aY, ColDebug, ss)
-            if aX&63 == 0 && aY&63 == 0 {
-                ss.Flip()
-            }
+			if aX&63 == 0 && aY&63 == 0 {
+				ss.Flip()
+			}
 		}
 		dB[dir] = best - rmCount // favourize paths that remove more material
 		return false
@@ -664,7 +665,7 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 // Find path from cX,cY to tX,tY so that no part of model is removed
 func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r int32) bool {
 
-	fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d\n", cX, cY, tX, tY)
+	//fmt.Printf("findPath cX=%d cY=%d tX=%d tY=%d\n", cX, cY, tX, tY)
 
 	// The algorithm is flood-fill like:
 	// For earch pixel we remember shortest distance to target point in 4
@@ -724,13 +725,9 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 			if rr4*abs32(x-cX) >= currBestDist || rr4*abs32(y-cY) >= currBestDist {
 				continue
 			}
-			
-/*			if round < 32 && a > 8 {
-                done = false
-                break
-            }*/
 
-			/*for i := tY - 3; i <= tY+3; i++ {
+			/*fmt.Printf(" N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW\n")
+			for i := tY - 3; i <= tY+3; i++ {
 				for j := tX - 3; j <= tX+3; j++ {
 					if !inRect(i, j, w, h) {
 						continue
@@ -747,10 +744,10 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 			done = setDist(ss, rmc, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done)
 			done = setDist(ss, rmc, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done)
 			done = setDist(ss, rmc, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done)
-			//done = setDist(ss, rmc, dist, x, y, x+1, y+1, dirSE, w, h, r, currBestDist, done)
-			//done = setDist(ss, rmc, dist, x, y, x-1, y-1, dirNW, w, h, r, currBestDist, done)
-			//done = setDist(ss, rmc, dist, x, y, x-1, y+1, dirSW, w, h, r, currBestDist, done)
-			//done = setDist(ss, rmc, dist, x, y, x+1, y-1, dirNE, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x+1, y+1, dirNW, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x-1, y-1, dirSE, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x-1, y+1, dirNE, w, h, r, currBestDist, done)
+			done = setDist(ss, rmc, dist, x, y, x+1, y-1, dirSW, w, h, r, currBestDist, done)
 		}
 
 		//if currBestDist < DistMax {
@@ -786,7 +783,19 @@ func findPath(ss *sdl.Surface, rmc [][]int32, tc *Tco, cX, cY, tX, tY, w, h, r i
 			x, y = moveXy(tc, x+1, y+1)
 		}
 
-		fmt.Printf("x=%d y=%d dir=%d\n", x, y, dir)
+		/*fmt.Printf(" N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW\n")
+		for i := tY - 3; i <= tY+3; i++ {
+			for j := tX - 3; j <= tX+3; j++ {
+				if !inRect(i, j, w, h) {
+					continue
+				}
+				dumpDists(dist[j][i])
+				fmt.Printf("| ")
+			}
+			fmt.Println()
+		}
+		fmt.Printf("x=%d y=%d dir=%d bestDist=%d\n", x, y, dir, dst)*/
+
 		removeMaterial(ss, rmc, w, h, x, y, r)
 		sdlSet(x, y, ColDebug, ss)
 		ss.Flip()
@@ -800,8 +809,8 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, currX, currY, w, h, 
 
 	undrawDebug(ss, w, h)
 	firstTx, firstTy := currX, currY
-    found := false
-	
+	found := false
+
 	for tX, tY, a, ok := nearRectBegin(currX, currY, w, h, 1); ok; tX, tY, a, ok = nearRectNext(currX, currY, tX, tY, a, w, h) {
 
 		if removeCount(ss, rmc, w, h, tX, tY, r) > 0 {
@@ -820,14 +829,14 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, currX, currY, w, h, 
 }
 
 func makeRmc(w, h int32) [][]int32 {
-    rmc := make([][]int32, w)
-    for x := range rmc {
-        rmc[x] = make([]int32, h)
-        for y := range rmc[x] {
-            rmc[x][y] = -2              // -2 means not computed yet or invalidated
-        }
-    }
-    return rmc
+	rmc := make([][]int32, w)
+	for x := range rmc {
+		rmc[x] = make([]int32, h)
+		for y := range rmc[x] {
+			rmc[x][y] = -2 // -2 means not computed yet or invalidated
+		}
+	}
+	return rmc
 }
 
 // Compute milling trajectory, before exit the position is always returned to
@@ -840,9 +849,9 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	drawModel(img, ss, r+1, r+1, w, h)  // draw the model with green so that we see if we are removing correct parts
 	w, h = w+2*(r+1), h+2*(r+1)
 
-    // Cache for removeCount()
-    rmc := makeRmc(w, h)
-    
+	// Cache for removeCount()
+	rmc := makeRmc(w, h)
+
 	var x, y int32 = 0, 0
 
 	moveZ(tc, z)
@@ -932,16 +941,16 @@ func drawTrajectory(txtFile string, r int32) {
 	ss := sdlInit(w, h)            // sdl surface - with radius+1 border
 	sdlFill(ss, w, h, ColMaterial) // we have all material in the begining then we remove the parts so that just model is left
 
-    // Cache for removeCount()
-    rmc := makeRmc(w, h)
-    
+	// Cache for removeCount()
+	rmc := makeRmc(w, h)
+
 	content, err := ioutil.ReadFile(txtFile)
 	if err != nil {
 		panic(err)
 	}
 	lines := strings.Split(string(content), "\n")
 
-    trajLen := int32(0)
+	trajLen := int32(0)
 	x, y, z := int32(0), int32(0), int32(0)
 	for i := 0; i < len(lines); i++ {
 		line := lines[i] + "\n"
@@ -964,10 +973,10 @@ func drawTrajectory(txtFile string, r int32) {
 				switch cmd {
 				case 'x':
 					tx = arg
-                case 'y':
-                    ty = arg
-                case 'z':
-                    tz = arg
+				case 'y':
+					ty = arg
+				case 'z':
+					tz = arg
 				case 'm':
 					//tX, tY := x + (109 * (tar[0] - pos[0])) / 1250, y + (109 * (tar[1] - pos[1])) / 1250
 
@@ -978,7 +987,7 @@ func drawTrajectory(txtFile string, r int32) {
 						drawLine(ss, rmc, x, y, tx, ty)
 						doLine(ss, rmc, x, y, tx, ty, w, h, r, false, true)
 						ss.Flip()
-                        trajLen += max(abs32(x - tx), abs32(y - ty))
+						trajLen += max(abs32(x-tx), abs32(y-ty))
 					}
 					x, y, z = tx, ty, tz
 				}
