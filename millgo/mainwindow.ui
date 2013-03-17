@@ -196,7 +196,7 @@
      </rect>
     </property>
     <property name="text">
-     <string/>
+     <string>0,0 5,-2 10,-4 15,-6 20,-8 25,-10 30,-12 35,-14 40,-16 45,-18 50,-20 55,-22 60,-24 65,-26 70,-28 75,-30 80,-32 85,-34 90,-36 95,-38 100,-40 105,-42 110,-44 115,-46 120,-48</string>
     </property>
    </widget>
    <widget class="QPushButton" name="bDriftx">
