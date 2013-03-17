@@ -293,14 +293,15 @@ void delayMicroseconds(int)
     // tz = 847 * arg / 10;            // 874 steps = 1mm
 
     drawLine2(prnBits,
-              (109 * machineX) / 5000     + w / 8 + machineZ / 30,
-              (109 * machineY) / 5000     + h / 2 + machineZ / 30,
-              (109 * newMachineX) / 5000  + w / 8 + (newMachineZ / 30 + 0),
-              (109 * newMachineY) / 5000  + h / 2 + (newMachineZ / 30 + 0),
+              (109 * machineX) / 5000     + w / 8,
+              (109 * machineY) / 5000     + h / 2,
+              (109 * newMachineX) / 5000  + w / 8,
+              (109 * newMachineY) / 5000  + h / 2,
               ((newMachineZ / 5) % 31) + 1);
 
-    if(machineZ != newMachineZ)
+    if(machineZ != newMachineZ) {
         mainWin->setWindowTitle("Milling z=" + QString::number((10 * machineZ) / 847));
+    }
 
     machineX = newMachineX;
     machineY = newMachineY;

@@ -163,7 +163,7 @@ func moveZ(t *Tco, z int32) {
 		writeCmd(t, fmt.Sprintf("z%d m", t.z)) // move 0.5mm up
 	}
 
-	writeCmd(t, "s4000 d3000") // restore speed
+	writeCmd(t, "s4000 d3200") // restore speed
 	flushCmd(t)
 }
 
@@ -915,6 +915,9 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 			countSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
 			countNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
 
+            countN *= 2
+            countS *= 2
+            
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
 			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {

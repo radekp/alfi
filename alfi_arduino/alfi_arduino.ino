@@ -85,6 +85,11 @@ int delayAndCheckLimit(int delayUs, int inputNo, int axis)
 {
     int oldLimit = limit;
     delayMicroseconds(delayUs);
+    
+    if(axis == 0) {
+        delayMicroseconds(delayUs);
+    }
+    
     limit = analogRead(inputNo);    // read the limit switch
 
     if (oldLimit >= 0) {
