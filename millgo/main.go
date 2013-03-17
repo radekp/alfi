@@ -50,17 +50,25 @@ type Tco struct {
 }
 
 func flushCmd(t *Tco) {
-	if t.cmdLen > 0 {
-		fmt.Fprint(t.cmd, "\n")
-		t.cmdLen = 0
-	}
+	if t.cmdLen == 0 {
+        return
+    }
+	fmt.Fprint(t.cmd, "\n")
+	t.cmdLen = 0
 }
 
 func writeCmd(t *Tco, cmd string) {
-
 	if t.cmdLen+len(cmd) >= 254 {
 		flushCmd(t)
-	} else if t.cmdLen > 0 {
+	}
+
+	if t.cmdLen == 0 {
+        curPosCmd := fmt.Sprintf("x%d y%d z%d c", t.x, t.y, t.z)
+        fmt.Fprintf(t.cmd, curPosCmd)
+        t.cmdLen = len(curPosCmd)
+    }
+	
+	if t.cmdLen > 0 {
 		fmt.Fprint(t.cmd, " ")
 		t.cmdLen++
 	}
@@ -514,6 +522,9 @@ func removeCountFavClose(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) 
 		return res
 	}
 
+	modelNearby := false
+	removedNearby := int32(0)
+
 	// Bonus if model is nearby
 	for x, y, okR := inRadiusBegin(cx, cy, r+1, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r+1, w, h) {
 		if inRadius(x, y, cx, cy, r) {
@@ -521,12 +532,21 @@ func removeCountFavClose(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) 
 		}
 		val := sdlGet(x, y, ss)
 		if (val & ColModel) != 0 { // nearby to to model
-			res *= 2
-			break
+			modelNearby = true
 		}
+		if (val & ColRemoved) != 0 {
+            removedNearby++
+        }
 	}
-
-	return res
+	
+	if modelNearby {
+        res *= 1
+    }
+    
+    //fmt.Printf("res=%d nearby=%d\n", res, removedNearby)
+    //7 * (r + 1) - removedNearby
+    
+	return (7 * (r + 1) * res) / (removedNearby + 1)
 }
 
 // Line from x,y to target tX,tY. Moves until model part is not removed
@@ -990,6 +1010,8 @@ func drawTrajectory(txtFile string, r int32) {
 						trajLen += max(abs32(x-tx), abs32(y-ty))
 					}
 					x, y, z = tx, ty, tz
+               case 'c':
+                    x, y, z = tx, ty, tz
 				}
 			}
 		}

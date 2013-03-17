@@ -294,9 +294,9 @@ void delayMicroseconds(int)
 
     drawLine2(prnBits,
               (109 * machineX) / 5000     + w / 8 + machineZ / 30,
-              (109 * machineY) / 5000     + h / 4 + machineZ / 30,
+              (109 * machineY) / 5000     + h / 2 + machineZ / 30,
               (109 * newMachineX) / 5000  + w / 8 + (newMachineZ / 30 + 0),
-              (109 * newMachineY) / 5000  + h / 4 + (newMachineZ / 30 + 0),
+              (109 * newMachineY) / 5000  + h / 2 + (newMachineZ / 30 + 0),
               ((newMachineZ / 5) % 31) + 1);
 
     if(machineZ != newMachineZ)
@@ -607,6 +607,6 @@ void MainWindow::on_bDriftxAdd_clicked()
     QString text = ui->tbDriftx->text();
     if(text.length() > 0)
         text += " ";
-    text += QString::number(cz) + "," + QString::number(cx);
+    text += QString::number(curZ) + "," + QString::number(curX);
     ui->tbDriftx->setText(text);
 }

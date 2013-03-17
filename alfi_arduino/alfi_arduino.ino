@@ -260,8 +260,8 @@ void moveZ()
     delayZ = delayAndCheckLimit(delayZ, A1, 2);
 
     int i;
-    int bestDelta = 0xffff;
-    int delta;
+    long bestDelta = 0xfffffff;
+    long delta;
     for(i = 0; i < lastDrift; i++) {
         delta = abs(driftsZ[i] - cz);
         if(delta > bestDelta)
@@ -442,9 +442,6 @@ void loop()
     }
     // motion handling
     if (cmd == 'M') {
-        if (cx != tx || cy != ty) {
-            drawLine(cx, cy, tx + currDriftX, ty);
-        }
         while (cz < tz) {
             cz++;
             moveZ();
@@ -454,6 +451,9 @@ void loop()
             cz--;
             moveZ();
             zOff();
+        }
+        if (cx != tx + currDriftX || cy != ty) {
+            drawLine(cx, cy, tx + currDriftX, ty);
         }
         if (cmdIndex < 0) {
             Serial.print("done");
@@ -480,7 +480,7 @@ void loop()
     } else if (cmd == 'c') {
         cx = tx;
         cy = ty;
-        cz = cz;
+        cz = tz;
     } else if (cmd == 'r') {
         if(arg >= MAX_DRIFTS) {
             Serial.print("max drifts reached!");
