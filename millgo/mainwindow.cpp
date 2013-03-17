@@ -254,11 +254,7 @@ int moveByGpio(int coord, int newGpio, int gpio0, int gpio2, int gpio4, int gpio
     int is6 = newGpio & (1 << gpio6);
 
     int newDir;
-    if(is0 && is2)       newDir = 1;
-    else if(is2 && is4)  newDir = 3;
-    else if(is4 && is6)  newDir = 5;
-    else if(is6 && is0)  newDir = 7;
-    else if(is0)         newDir = 0;
+    if(is0)              newDir = 0;
     else if(is2)         newDir = 2;
     else if(is4)         newDir = 4;
     else if(is6)         newDir = 6;
@@ -283,7 +279,7 @@ int moveByGpio(int coord, int newGpio, int gpio0, int gpio2, int gpio4, int gpio
 void delayMicroseconds(int)
 {
     newMachineX = moveByGpio(machineX, gpioVal, 3, 2, 4, 5);        // x axis, gpios 3 2 4 5
-    newMachineY = moveByGpio(machineY, gpioVal, 8, 7, 9, 6);        // y axis, gpios 8 7 9 6
+    newMachineY = moveByGpio(machineY, gpioVal, 8, 6, 9, 7);        // y axis, gpios 8 7 9 6
     newMachineZ = moveByGpio(machineZ, gpioVal, 13, 12, 10, 11);    // z axis, gpios 13 12 10 11
 
     int w = mainWin->width();
@@ -293,10 +289,10 @@ void delayMicroseconds(int)
     // tz = 847 * arg / 10;            // 874 steps = 1mm
 
     drawLine2(prnBits,
-              (109 * machineX) / 5000     + w / 8,
-              (109 * machineY) / 5000     + h / 2,
-              (109 * newMachineX) / 5000  + w / 8,
-              (109 * newMachineY) / 5000  + h / 2,
+              (109 * machineX) / 2500     + w / 8 + machineZ / 10,
+              (109 * machineY) / 2500     + h / 4 + machineZ / 10,
+              (109 * newMachineX) / 2500  + w / 8 + machineZ / 10,
+              (109 * newMachineY) / 2500  + h / 4 + machineZ / 10,
               ((newMachineZ / 5) % 31) + 1);
 
     if(machineZ != newMachineZ) {
