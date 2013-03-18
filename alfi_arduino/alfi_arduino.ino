@@ -20,42 +20,44 @@
 #define MAX_CMDS 128
 #define MAX_DRIFTS 64
 
-long cx;                        // current pos
-long cy;
-long cz;
+#define int32 long
 
-long driftsZ[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
-long driftsX[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
-int lastDrift;
-long currDriftX;
+int32 cx;                        // current pos
+int32 cy;
+int32 cz;
 
-long tx;                        // target pos
-long ty;
-long tz;
+int32 driftsZ[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
+int32 driftsX[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
+int32 lastDrift;
+int32 currDriftX;
 
-int sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
-int tdelay;                     // target deleay between steps (smaller number is higher speed)
-int delayStep;                  // with this step is delay increased/decreased
-long delayX;                     // current delay on x
-long delayY;                     // current delay on y
-long delayZ;                     // current delay on z
+int32 tx;                        // target pos
+int32 ty;
+int32 tz;
+
+int32 sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
+int32 tdelay;                     // target deleay between steps (smaller number is higher speed)
+int32 delayStep;                  // with this step is delay increased/decreased
+int32 delayX;                     // current delay on x
+int32 delayY;                     // current delay on y
+int32 delayZ;                     // current delay on z
 
 char cmd;                       // current command (a=axis, x,y,z=pos, r=driftx in current z, s=sdelay, d=tdelay, z=delay step, m=start motion, set current pos, q=queue start, e=execute queue)
-long arg;                        // argument for current commands
+int32 arg;                        // argument for current commands
 
 char cmds[MAX_CMDS];            // queued commands
-long args[MAX_CMDS];             // arguments for queued commands
-int cmdIndex;
-int cmdCount;
-int queueId;
+int32 args[MAX_CMDS];             // arguments for queued commands
+int32 cmdIndex;
+int32 cmdCount;
+int32 queueId;
 
 char b;
 char buf[9];
-int bufPos;
-int limit;                      // last value of limit switch
+int32 bufPos;
+int32 limit;                      // last value of limit switch
 
-int lastAxis;
-int lastAxis2;
+int32 lastAxis;
+int32 lastAxis2;
 
 void xOff()
 {
@@ -81,9 +83,9 @@ void zOff()
     digitalWrite(13, LOW);
 }
 
-int delayAndCheckLimit(int delayUs, int inputNo, int axis)
+int32 delayAndCheckLimit(int32 delayUs, int32 inputNo, int32 axis)
 {
-    int oldLimit = limit;
+    int32 oldLimit = limit;
     delayMicroseconds(delayUs);
     
     if(axis == 0) {
@@ -93,7 +95,7 @@ int delayAndCheckLimit(int delayUs, int inputNo, int axis)
     limit = analogRead(inputNo);    // read the limit switch
 
     if (oldLimit >= 0) {
-        int deltaL = abs(limit - oldLimit);
+        int32 deltaL = abs(limit - oldLimit);
         if (deltaL > 512) {
             // stop motion if limit switch value changes
             Serial.print("limit ");
@@ -127,7 +129,7 @@ int delayAndCheckLimit(int delayUs, int inputNo, int axis)
 // One step to x
 void moveX()
 {
-    long r = (cx + 0x1000000) % 8;          // 0x1000000 to handle negative values
+    int32 r = (cx + 0x1000000) % 8;          // 0x1000000 to handle negative values
 
     // 3 2 4 5
     switch (r) {
@@ -174,7 +176,7 @@ void moveX()
 // One step to y
 void moveY()
 {
-    long r = (cy + 0x1000000) % 8;
+    int32 r = (cy + 0x1000000) % 8;
 
     // 8 7 9 6
     switch (r) {
@@ -221,7 +223,7 @@ void moveY()
 // One step to z
 void moveZ()
 {
-    long r = (cz + 0x1000000) % 8;
+    int32 r = (cz + 0x1000000) % 8;
 
     // 13 12 10 11
     switch (r) {
@@ -264,9 +266,9 @@ void moveZ()
     }
     delayZ = delayAndCheckLimit(delayZ, A1, 2);
 
-    int i;
-    long bestDelta = 0xfffffff;
-    long delta;
+    int32 i;
+    int32 bestDelta = 0xfffffff;
+    int32 delta;
     for(i = 0; i < lastDrift; i++) {
         delta = abs(driftsZ[i] - cz);
         if(delta > bestDelta)
@@ -278,11 +280,11 @@ void moveZ()
 }
 
 // draw line using Bresenham's line algorithm
-void drawLine(long x0, long y0, long x1, long y1)
+void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
 {
-    long dx = abs(x1 - x0);
-    long dy = abs(y1 - y0);
-    long sx, sy;
+    int32 dx = abs(x1 - x0);
+    int32 dy = abs(y1 - y0);
+    int32 sx, sy;
     if (x0 < x1) {
         sx = 1;
     } else {
@@ -293,8 +295,8 @@ void drawLine(long x0, long y0, long x1, long y1)
     } else {
         sy = -1;
     }
-    long err = dx - dy;
-    long e2;
+    int32 err = dx - dy;
+    int32 e2;
 
     for (;;) {
         // move to x0,y0
