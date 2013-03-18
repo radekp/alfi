@@ -59,6 +59,23 @@ int32 limit;                      // last value of limit switch
 int32 lastAxis;
 int32 lastAxis2;
 
+int32 getDriftX(int32 z)
+{
+    int32 i;
+    int32 bestDelta = 0xfffffff;
+    int32 delta;
+    int32 res = 0;
+    for(i = 0; i < lastDrift; i++) {
+        delta = abs(driftsZ[i] - z);
+        if(delta > bestDelta)
+            continue;
+
+        bestDelta = delta;
+        res = driftsX[i];
+    }
+    return res;
+}
+
 void xOff()
 {
     digitalWrite(2, LOW);
@@ -266,17 +283,7 @@ void moveZ()
     }
     delayZ = delayAndCheckLimit(delayZ, A1, 2);
 
-    int32 i;
-    int32 bestDelta = 0xfffffff;
-    int32 delta;
-    for(i = 0; i < lastDrift; i++) {
-        delta = abs(driftsZ[i] - cz);
-        if(delta > bestDelta)
-            continue;
-
-        bestDelta = delta;
-        currDriftX = driftsX[i];
-    }
+    currDriftX = getDriftX(cz);
 }
 
 // draw line using Bresenham's line algorithm
@@ -485,9 +492,15 @@ void loop()
     } else if (cmd == 'z') {
         tz = (847 * arg) / 10;            // 874 steps = 1mm
     } else if (cmd == 'c') {
-        cx = tx;
-        cy = ty;
         cz = tz;
+        currDriftX = getDriftX(cz);
+
+//        if(cx != tx + currDriftX || cy != ty)
+//            qDebug() << "cx=" << cx << ", tx=" << tx << ", cy=" << cy << ", ty=" << ty;
+
+        cx = tx + currDriftX;
+        cy = ty;
+
     } else if (cmd == 'r') {
         if(arg >= MAX_DRIFTS) {
             Serial.print("max drifts reached!");
