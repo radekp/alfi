@@ -478,8 +478,7 @@ func removeMaterial(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) {
 	}
 	sdlSet(cx, cy, ColVisited, ss)
 	if cx >= w || cx < 0 || cy >= h || cy < 0 {
-		fmt.Printf("\ncx=%d cy=%d\n", cx, cy)
-		fmt.Scanln()
+		panic(fmt.Sprintf("cx=%d cy=%d", cx, cy))
 	}
 	rmc[cx][cy] = 0
 }
@@ -651,10 +650,10 @@ func bestDist(d []int32) (dir int, dist int32) {
 
 // Set distance of nearby points (from point ax,ay -> bx,by) in given dir (0=N,
 // 1=S, 2=E, 3=W)
-func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, currBestDist int32, done, found bool, round int) (newDone, newFound bool, newBest int32) {
+func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, dir, w, h, r, currBestDist, lastSetX, lastSetY int32, done, found bool, round int) (newDone, newFound bool, newBest int32, setX, setY int32) {
 
-	newDone, newFound, newBest = done, found, currBestDist
-
+	newDone, newFound, newBest, setX, setY = done, found, currBestDist, lastSetX, lastSetY
+	
 	if !inRect(bX, bY, w, h) {
 		return
 	}
@@ -670,14 +669,10 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 	dB := dist[bX][bY]
 	rmCount := removeCount(ss, rmc, w, h, bX, bY, r)
 
-	if !found && rmCount > 0 && best < DistMax {
-		fmt.Printf("==== found rmCount=%d best=%d bX=%d bY=%d\n", rmCount, best, bX, bY)
-		newFound = true
-	}
-
 	if currBestDist == DistMax && rmCount > 0 && best < DistMax {
 		//fmt.Printf("==== found rmCount=%d best=%d bX=%d bY=%d\n", rmCount, best, bX, bY)
 		newBest = best
+		newFound = true
 	}
 
 	//fmt.Printf("setDist aX=%d aY=%d bX=%d bY=%d rmCount=%d\n", aX, aY, bX, bY, rmCount)
@@ -694,6 +689,7 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 		}
 		dB[dir] = best - rmCount // favourize paths that remove more material
 		newDone = false
+		setX, setY = bX, bY
 	}
 	return
 }
@@ -728,11 +724,10 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, cX, cY, w, h, r int3
 		}
 	}
 
-	//	rr4 := 4 * r * r
-
 	undrawDebug(ss, w, h)
 	currBestDist := DistMax
 	found := false
+	lastSetX, lastSetY := cX, cY
 	for round := 0; ; round++ {
 
 		done := true
@@ -741,23 +736,21 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, cX, cY, w, h, r int3
 		undrawBlue(ss, w, h)
 		//drawLine(ss, rmc, cX, cY, tX, tY)
 
-		if round%4 == 0 {
+		if round%8 == 0 {
 			centerX, centerY = cX, cY
-		} else if round%4 == 0 {
+		} else if round%8 == 0 {
 			centerX, centerY = 0, 0
-		} else if round%4 == 1 {
+		} else if round%8 == 1 {
 			centerX, centerY = 0, w-1
-		} else if round%4 == 2 {
+		} else if round%8 == 2 {
 			centerX, centerY = 0, h-1
-		} else if round%4 == 3 {
+		} else if round%8 == 3 {
 			centerX, centerY = w-1, h-1
-		}
+		} else {
+            centerX, centerY = lastSetX, lastSetY
+        }
 
 		for x, y, a, ok := nearRectBegin(centerX, centerY, w, h, 0); ok; x, y, a, ok = nearRectNext(centerX, centerY, x, y, a, w, h) {
-
-			//if rr4*abs32(x-cX) >= currBestDist || rr4*abs32(y-cY) >= currBestDist {
-			//continue
-			//}
 
 			/*fmt.Printf(" N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW|  N  S  E  W  NW NE SE SW\n")
 			for i := cY - 3; i <= cY+3; i++ {
@@ -773,25 +766,17 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, cX, cY, w, h, r int3
 			fmt.Printf("x=%d y=%d a=%d done=%t currBestDist=%d\n", x, y, a, done, currBestDist)
 			fmt.Scanln()*/
 
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x, y+1, dirN, w, h, r, currBestDist, done, found, round)
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, done, found, round)
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, done, found, round)
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, done, found, round)
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x+1, y+1, dirNW, w, h, r, currBestDist, done, found, round)
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x-1, y-1, dirSE, w, h, r, currBestDist, done, found, round)
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x-1, y+1, dirNE, w, h, r, currBestDist, done, found, round)
-			done, found, currBestDist = setDist(ss, rmc, dist, x, y, x+1, y-1, dirSW, w, h, r, currBestDist, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x, y+1, dirN, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x, y-1, dirS, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x-1, y, dirE, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x+1, y, dirW, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x+1, y+1, dirNW, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x-1, y-1, dirSE, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x-1, y+1, dirNE, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
+			done, found, currBestDist, lastSetX, lastSetY = setDist(ss, rmc, dist, x, y, x+1, y-1, dirSW, w, h, r, currBestDist, lastSetX, lastSetY, done, found, round)
 		}
 
-		fmt.Printf("round=%d done=%t found=%t currBestDist=%d\n", round, done, found, currBestDist)
-
-		//if currBestDist < DistMax {
-		//break
-		//}
-
-		if round > 32 {
-			break
-		}
+		fmt.Printf("round=%d done=%t found=%t currBestDist=%d, lastSetX=%d lastSetY=%d\n", round, done, found, currBestDist, lastSetX, lastSetY)
 
 		if done {
 			break
@@ -1026,7 +1011,7 @@ func drawTrajectory(txtFile string, r int32) {
 	x, y, z := int32(0), int32(0), int32(0)
 	for i := 0; i < len(lines); i++ {
 		line := lines[i] + "\n"
-		fmt.Printf("%d) %s\n", i, line)
+		//fmt.Printf("%d) %s\n", i, line)
 		var arg int32 = 0
 		var cmd byte = '_'
 		tx, ty, tz := x, y, z
