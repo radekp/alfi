@@ -35,14 +35,18 @@ int32 tx;                       // target pos
 int32 ty;
 int32 tz;
 
-int32 sdelay;                   // start delay - it decreases with each motor step until it reaches tdelay
-int32 tdelay;                   // target deleay between steps (smaller number is higher speed)
+int32 sdelayX;                  // start delay - it decreases with each motor step until it reaches tdelay
+int32 tdelayX;                  // target deleay between steps (smaller number is higher speed)
+int32 sdelayY;                  // start delay - it decreases with each motor step until it reaches tdelay
+int32 tdelayY;                  // target deleay between steps (smaller number is higher speed)
+int32 sdelayZ;                  // start delay - it decreases with each motor step until it reaches tdelay
+int32 tdelayZ;                  // target deleay between steps (smaller number is higher speed)
 int32 delayStep;                // with this step is delay increased/decreased
 int32 delayX;                   // current delay on x
 int32 delayY;                   // current delay on y
 int32 delayZ;                   // current delay on z
 
-char cmd;                       // current command (a=axis, x,y,z=pos, r=driftx in current z, s=sdelay, d=tdelay, z=delay step, m=start motion, set current pos, q=queue start, e=execute queue)
+char cmd;                       // current command (a=axis, x,y,z=pos, r=driftx in current z, s=sdelayX, w=tdelayX, h=sdelayY, n=tdelayY, a=sdelayZ, q=tdelayZ, z=delay step, m=start motion, set current pos, q=queue start, e=execute queue)
 int32 arg;                      // argument for current commands
 
 char cmds[MAX_CMDS];            // queued commands
@@ -102,7 +106,7 @@ void zOff()
     digitalWrite(13, LOW);
 }
 
-int32 delayAndCheckLimit(int32 delayUs, int32 inputNo, int32 axis)
+int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis)
 {
     delayMicroseconds(delayUs);
 
@@ -110,15 +114,15 @@ int32 delayAndCheckLimit(int32 delayUs, int32 inputNo, int32 axis)
         delayMicroseconds(delayUs);
     }
     if (axis != 0 && lastAxis != 0) {
-        delayX = sdelay;
+        delayX = sdelayX;
         xOff();
     }
     if (axis != 1 && lastAxis != 1) {
-        delayY = sdelay;
+        delayY = sdelayY;
         yOff();
     }
     if (axis != 2 && lastAxis != 2) {
-        delayZ = sdelay;
+        delayZ = sdelayZ;
         zOff();
     }
     if ((lastAxis == axis || lastAxis2 == axis) && delayUs > tdelay) {
@@ -173,7 +177,7 @@ void moveX()
         digitalWrite(3, HIGH);
         break;                  // 53
     }
-    delayX = delayAndCheckLimit(delayX, A2, 0);
+    delayX = delayAndCheckLimit(delayX, tdelayX, 0);
 }
 
 // One step to y
@@ -220,7 +224,7 @@ void moveY()
         digitalWrite(8, HIGH);
         break;                  // 68
     }
-    delayY = delayAndCheckLimit(delayY, A0, 1);
+    delayY = delayAndCheckLimit(delayY, tdelayY, 1);
 }
 
 void safeMoveY()
@@ -302,7 +306,7 @@ void moveZ()
         digitalWrite(13, HIGH);
         break;                  // 11 13
     }
-    delayZ = delayAndCheckLimit(delayZ, A1, 2);
+    delayZ = delayAndCheckLimit(delayZ, tdelayZ, 2);
 
     currDriftX = getDriftX(cz);
 }
@@ -388,10 +392,17 @@ void setup()
     memset(driftsZ, 0, MAX_DRIFTS);
     currDriftX = 0;
     lastDrift = -1;
-    sdelay = 3600;
-    tdelay = 2400;
+
+    delayX = sdelayX = 4000;
+    tdelayX = 3600;
+
+    delayY = sdelayY = 3600;
+    tdelayY = 3000;
+
+    delayZ = sdelayZ = 8000;
+    tdelayZ = 4000;
+
     delayStep = 50;
-    delayX = delayY = delayZ = sdelay;
     lastAxis = lastAxis2 = -1;
 
     for (int i = 0; i < 80; i++) {
@@ -427,7 +438,9 @@ void loop()
             yOff();
             zOff();
 
-            delayX = delayY = delayZ = sdelay;
+            delayX = sdelayX;
+            delayY = sdelayY;
+            delayZ = sdelayZ;
             lastAxis = lastAxis2 = -1;
         }
         // check if data has been sent from the computer:
@@ -534,10 +547,18 @@ void loop()
             driftsZ[lastDrift] = tz;
         }
     } else if (cmd == 's') {
-        sdelay = arg;
-    } else if (cmd == 'd') {
-        tdelay = arg;
-    } else if (cmd == 'z') {
+        sdelayX = arg;
+    } else if (cmd == 'w') {
+        tdelayX = arg;
+    } else if (cmd == 'h') {
+        sdelayY = arg;
+    } else if (cmd == 'n') {
+        tdelayY = arg;
+    } else if (cmd == 'a') {
+        sdelayZ = arg;
+    } else if (cmd == 'q') {
+        tdelayZ = arg;
+    } else if (cmd == 'p') {
         delayStep = arg;
     } else {
         Serial.print("error: unknown command ");
