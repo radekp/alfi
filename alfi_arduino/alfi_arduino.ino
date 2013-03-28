@@ -54,10 +54,12 @@ int32 queueId;
 char b;
 char buf[9];
 int32 bufPos;
-int32 limit;                      // last value of limit switch
 
 int32 lastAxis;
 int32 lastAxis2;
+
+int limitsY[80];                // limit values on y axis, 80 steps are for 360 degree turn
+int32 lastOkY;                  // 
 
 int32 getDriftX(int32 z)
 {
@@ -102,26 +104,10 @@ void zOff()
 
 int32 delayAndCheckLimit(int32 delayUs, int32 inputNo, int32 axis)
 {
-    int32 oldLimit = limit;
     delayMicroseconds(delayUs);
     
     if(axis == 0) {
         delayMicroseconds(delayUs);
-    }
-    
-    limit = analogRead(inputNo);    // read the limit switch
-
-    if (oldLimit >= 0) {
-        int32 deltaL = abs(limit - oldLimit);
-        if (deltaL > 512) {
-            // stop motion if limit switch value changes
-            Serial.print("limit ");
-            Serial.print(oldLimit);
-            Serial.print("->");
-            Serial.println(limit);
-            cmd = 0;
-            cmdIndex = cmdCount = -1;
-        }
     }
     if (axis != 0 && lastAxis != 0) {
         delayX = sdelay;
@@ -237,6 +223,46 @@ void moveY()
     delayY = delayAndCheckLimit(delayY, A0, 1);
 }
 
+void safeMoveY()
+{
+    moveY();
+  
+    int limit = analogRead(A0);
+    int32 r = (cy + 80000) % 80;
+    if(limitsY[r] < 0) {
+          delayY = 14000;
+          limitsY[r] = limit;
+          return;
+    }    
+
+      if((limit > 1020) == (limitsY[r] > 1020))
+      {
+        lastOkY = cy;
+          return;
+      }
+      
+    int savedCy = cy;
+    cy = lastOkY;
+
+    for(;;)
+    {
+      moveY();      
+      limit = analogRead(A0);
+      if((limit > 1020) == (limitsY[r] > 1020)) {
+        cy = savedCy;
+        return;
+      }
+      if(savedCy > lastOkY)
+      {
+         cy++; 
+      }
+      else
+      {
+        cy--;
+      }
+    }        
+}
+
 // One step to z
 void moveZ()
 {
@@ -313,7 +339,7 @@ void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
         }
         if (cy != y0) {
             cy = y0;
-            moveY();
+            safeMoveY();
         }
 
         if (x0 == x1 && y0 == y1) {
@@ -372,7 +398,11 @@ void setup()
     delayStep = 50;
     delayX = delayY = delayZ = sdelay;
     lastAxis = lastAxis2 = -1;
-
+    
+    for(int i = 0; i < 80; i++) {
+      limitsY[i] = -1;
+    }
+    
     Serial.println("arduino init ok");
 }
 
@@ -482,7 +512,6 @@ void loop()
             return;
         }
         cmd = 'M';
-        limit = -1;
         return;
     }
     if (cmd == 'x') {
