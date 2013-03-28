@@ -22,31 +22,31 @@
 
 #define int32 long
 
-int32 cx;                        // current pos
+int32 cx;                       // current pos
 int32 cy;
 int32 cz;
 
-int32 driftsZ[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
-int32 driftsX[MAX_DRIFTS];       // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
+int32 driftsZ[MAX_DRIFTS];      // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
+int32 driftsX[MAX_DRIFTS];      // drift on x changing as we move on z axis, as all numbers in 0.1mm scale
 int32 lastDrift;
 int32 currDriftX;
 
-int32 tx;                        // target pos
+int32 tx;                       // target pos
 int32 ty;
 int32 tz;
 
-int32 sdelay;                     // start delay - it decreases with each motor step until it reaches tdelay
-int32 tdelay;                     // target deleay between steps (smaller number is higher speed)
-int32 delayStep;                  // with this step is delay increased/decreased
-int32 delayX;                     // current delay on x
-int32 delayY;                     // current delay on y
-int32 delayZ;                     // current delay on z
+int32 sdelay;                   // start delay - it decreases with each motor step until it reaches tdelay
+int32 tdelay;                   // target deleay between steps (smaller number is higher speed)
+int32 delayStep;                // with this step is delay increased/decreased
+int32 delayX;                   // current delay on x
+int32 delayY;                   // current delay on y
+int32 delayZ;                   // current delay on z
 
 char cmd;                       // current command (a=axis, x,y,z=pos, r=driftx in current z, s=sdelay, d=tdelay, z=delay step, m=start motion, set current pos, q=queue start, e=execute queue)
-int32 arg;                        // argument for current commands
+int32 arg;                      // argument for current commands
 
 char cmds[MAX_CMDS];            // queued commands
-int32 args[MAX_CMDS];             // arguments for queued commands
+int32 args[MAX_CMDS];           // arguments for queued commands
 int32 cmdIndex;
 int32 cmdCount;
 int32 queueId;
@@ -67,9 +67,9 @@ int32 getDriftX(int32 z)
     int32 bestDelta = 0xfffffff;
     int32 delta;
     int32 res = 0;
-    for(i = 0; i < lastDrift; i++) {
+    for (i = 0; i < lastDrift; i++) {
         delta = abs(driftsZ[i] - z);
-        if(delta > bestDelta)
+        if (delta > bestDelta)
             continue;
 
         bestDelta = delta;
@@ -105,8 +105,8 @@ void zOff()
 int32 delayAndCheckLimit(int32 delayUs, int32 inputNo, int32 axis)
 {
     delayMicroseconds(delayUs);
-    
-    if(axis == 0) {
+
+    if (axis == 0) {
         delayMicroseconds(delayUs);
     }
     if (axis != 0 && lastAxis != 0) {
@@ -122,7 +122,7 @@ int32 delayAndCheckLimit(int32 delayUs, int32 inputNo, int32 axis)
         zOff();
     }
     if ((lastAxis == axis || lastAxis2 == axis) && delayUs > tdelay) {
-        delayUs -= delayStep;    // accelerate if two of last 3 moves are on the same axis
+        delayUs -= delayStep;   // accelerate if two of last 3 moves are on the same axis
     }
     lastAxis2 = lastAxis;
     lastAxis = axis;
@@ -132,7 +132,7 @@ int32 delayAndCheckLimit(int32 delayUs, int32 inputNo, int32 axis)
 // One step to x
 void moveX()
 {
-    int32 r = (cx + 0x1000000) % 8;          // 0x1000000 to handle negative values
+    int32 r = (cx + 0x1000000) % 8; // 0x1000000 to handle negative values
 
     // 3 2 4 5
     switch (r) {
@@ -226,41 +226,36 @@ void moveY()
 void safeMoveY()
 {
     moveY();
-  
+
     int limit = analogRead(A0);
     int32 r = (cy + 80000) % 80;
-    if(limitsY[r] < 0) {
-          delayY = 14000;
-          limitsY[r] = limit;
-          return;
-    }    
+    if (limitsY[r] < 0) {
+        delayY = 14000;
+        limitsY[r] = limit;
+        return;
+    }
 
-      if((limit > 1020) == (limitsY[r] > 1020))
-      {
+    if ((limit > 1020) == (limitsY[r] > 1020)) {
         lastOkY = cy;
-          return;
-      }
-      
+        return;
+    }
+
     int savedCy = cy;
     cy = lastOkY;
 
-    for(;;)
-    {
-      moveY();      
-      limit = analogRead(A0);
-      if((limit > 1020) == (limitsY[r] > 1020)) {
-        cy = savedCy;
-        return;
-      }
-      if(savedCy > lastOkY)
-      {
-         cy++; 
-      }
-      else
-      {
-        cy--;
-      }
-    }        
+    for (;;) {
+        moveY();
+        limit = analogRead(A0);
+        if ((limit > 1020) == (limitsY[r] > 1020)) {
+            cy = savedCy;
+            return;
+        }
+        if (savedCy > lastOkY) {
+            cy++;
+        } else {
+            cy--;
+        }
+    }
 }
 
 // One step to z
@@ -398,11 +393,11 @@ void setup()
     delayStep = 50;
     delayX = delayY = delayZ = sdelay;
     lastAxis = lastAxis2 = -1;
-    
-    for(int i = 0; i < 80; i++) {
-      limitsY[i] = -1;
+
+    for (int i = 0; i < 80; i++) {
+        limitsY[i] = -1;
     }
-    
+
     Serial.println("arduino init ok");
 }
 
@@ -431,7 +426,7 @@ void loop()
             xOff();
             yOff();
             zOff();
-     
+
             delayX = delayY = delayZ = sdelay;
             lastAxis = lastAxis2 = -1;
         }
@@ -515,11 +510,11 @@ void loop()
         return;
     }
     if (cmd == 'x') {
-        tx = (1250 * arg) / 109;        // 5000 x-steps = 43.6 mm
+        tx = (1250 * arg) / 109;    // 5000 x-steps = 43.6 mm
     } else if (cmd == 'y') {
-        ty = (1250 * arg) / 109;        // 5000 y-steps = 43.6 mm
+        ty = (1250 * arg) / 109;    // 5000 y-steps = 43.6 mm
     } else if (cmd == 'z') {
-        tz = (847 * arg) / 10;            // 874 steps = 1mm
+        tz = (847 * arg) / 10;  // 874 steps = 1mm
     } else if (cmd == 'c') {
         cz = tz;
         currDriftX = getDriftX(cz);
@@ -531,7 +526,7 @@ void loop()
         cy = ty;
 
     } else if (cmd == 'r') {
-        if(arg >= MAX_DRIFTS) {
+        if (arg >= MAX_DRIFTS) {
             Serial.print("max drifts reached!");
         } else {
             lastDrift = arg;
