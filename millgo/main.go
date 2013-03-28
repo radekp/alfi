@@ -148,7 +148,7 @@ func moveZ(t *Tco, z int32) {
 	// Always flush pending XY moves so that output is more readable
 	flushCmd(t)
 
-	writeCmd(t, "s8000 d4000") // slow speed, motor on z axis is from old printer and must move slowly
+	//writeCmd(t, "s8000 d4000") // slow speed, motor on z axis is from old printer and must move slowly
 
 	for t.z < z {
 		t.z += 5                                 // target 0.5mm down
@@ -163,7 +163,7 @@ func moveZ(t *Tco, z int32) {
 		writeCmd(t, fmt.Sprintf("z%d m", t.z)) // move 0.5mm up
 	}
 
-	writeCmd(t, "s4000 d3200") // restore speed
+	//writeCmd(t, "s4000 d3200") // restore speed
 	flushCmd(t)
 }
 

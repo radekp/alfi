@@ -110,9 +110,6 @@ int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis)
 {
     delayMicroseconds(delayUs);
 
-    if (axis == 0) {
-        delayMicroseconds(delayUs);
-    }
     if (axis != 0 && lastAxis != 0) {
         delayX = sdelayX;
         xOff();
@@ -244,20 +241,27 @@ void safeMoveY()
         return;
     }
 
-    int savedCy = cy;
-    cy = lastOkY;
+    // give limit switch some tolerance
+    for(int i = 1; i < 4; i++) {
+        if ((limit > 1020) == (limitsY[(r+i) % 80] > 1020))
+            return;
 
+        if ((limit > 1020) == (limitsY[(r+80-i) % 80] > 1020))
+            return;
+    }
+
+    int savedCy = cy;
     for (;;) {
+        if (savedCy > lastOkY)
+            cy++;
+        else
+            cy--;
+
         moveY();
         limit = analogRead(A0);
         if ((limit > 1020) == (limitsY[r] > 1020)) {
             cy = savedCy;
             return;
-        }
-        if (savedCy > lastOkY) {
-            cy++;
-        } else {
-            cy--;
         }
     }
 }
@@ -393,11 +397,12 @@ void setup()
     currDriftX = 0;
     lastDrift = -1;
 
-    delayX = sdelayX = 4000;
-    tdelayX = 3600;
+    delayX = sdelayX = 4600;
+    tdelayX = 4400;
 
-    delayY = sdelayY = 3600;
-    tdelayY = 3000;
+    sdelayY = 3800;
+    tdelayY = 4000;
+    delayY = 14000;    // we will probe limit during first revolution
 
     delayZ = sdelayZ = 8000;
     tdelayZ = 4000;
