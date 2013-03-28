@@ -27,7 +27,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>s4000 d3000 </string>
+     <string>s4000 d3000</string>
     </property>
    </widget>
    <widget class="QTextBrowser" name="tbSerial">

@@ -434,7 +434,8 @@ void MainWindow::waitCmdDone()
         if (serialLog.lastIndexOf("limit") >= 0) {      // limit switch
             QString tail =
                 serialLog.count() < 1024 ? serialLog : serialLog.right(1024);
-            QMessageBox::information(this, "Limit reached", tail);
+            //QMessageBox::information(this, "Limit reached", tail);
+            qDebug() << "==============" << tail;
             return;
         }
     }
