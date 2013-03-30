@@ -404,8 +404,8 @@ void setup()
     tdelayY = 4000;
     delayY = 14000;    // we will probe limit during first revolution
 
-    delayZ = sdelayZ = 8000;
-    tdelayZ = 4000;
+    delayZ = sdelayZ = 12000;
+    tdelayZ = 8000;
 
     delayStep = 50;
     lastAxis = lastAxis2 = -1;
