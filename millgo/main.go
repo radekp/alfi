@@ -46,6 +46,7 @@ type Tco struct {
 	tx, ty  int32     // target for aggregate moves
 	mX, mY  int32     // x, y in machine coordinates
 	cmdLen  int       // length of unflushed commands
+	lastRmCount  int32     // volume of material removed during last move
 	cmd     io.Writer // output of commands for arduio driver
 }
 
@@ -77,7 +78,7 @@ func writeCmd(t *Tco, cmd string) {
 }
 
 // Move stepper motor from A to B (in pixel coordinates, 1pixel=0.1mm)
-func moveXySimple(t *Tco, x, y int32) (int32, int32) {
+func moveXySimple(t *Tco, x, y, rmCount int32) (int32, int32) {
 
 	// Stepper motor steps: 5000 steps = 43.6 mm
 	//newMx, newMy := (1250 * x) / 109, (1250 * y ) / 109           //  //newMx, newMy := (5000 * bX) / 436, (5000 * bY ) / 436
@@ -95,6 +96,16 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 	if newMx == t.mX && newMy == t.mY {
 		return x, y
 	}
+
+	// Inform about material remove
+	if (rmCount == 0) != (t.lastRmCount == 0) {
+        if rmCount == 0 {
+            writeCmd(t, "v0");
+        } else {
+            writeCmd(t, "v1");
+        }
+    }
+    t.lastRmCount = rmCount
 
 	cmd := ""
 
@@ -118,9 +129,11 @@ func moveXySimple(t *Tco, x, y int32) (int32, int32) {
 }
 
 // Aggregate move
-func moveXy(t *Tco, x, y int32) (int32, int32) {
+func moveXy(t *Tco, x, y, rmCount int32) (int32, int32) {
 
-	//return moveXySimple(t, x, y)
+    if (rmCount == 0) != (t.lastRmCount == 0) {
+        return moveXySimple(t, x, y, rmCount)
+    }
 
 	x1, y1 := t.tx-t.x, t.ty-t.y
 	x2, y2 := x-t.tx, y-t.ty
@@ -130,8 +143,8 @@ func moveXy(t *Tco, x, y int32) (int32, int32) {
 		return x, y
 	}
 
-	moveXySimple(t, t.tx, t.ty)
-	return moveXySimple(t, x, y)
+	moveXySimple(t, t.tx, t.ty, rmCount)
+	return moveXySimple(t, x, y, rmCount)
 }
 
 // Move up or down to z
@@ -143,7 +156,7 @@ func moveXy(t *Tco, x, y int32) (int32, int32) {
 func moveZ(t *Tco, z int32) {
 
 	// Finish pending aggregate moves
-	moveXySimple(t, t.tx, t.ty)
+	moveXySimple(t, t.tx, t.ty, t.lastRmCount)
 
 	// Always flush pending XY moves so that output is more readable
 	flushCmd(t)
@@ -152,14 +165,14 @@ func moveZ(t *Tco, z int32) {
 
 	for t.z < z {
 		t.z += 5                                 // target 0.5mm down
-		moveXySimple(t, t.x, t.y)                // compensate x drift
+		moveXySimple(t, t.x, t.y, 1)             // compensate x drift
 		writeCmd(t, fmt.Sprintf("z%d m", t.z))   // move 0.5mm down
 		writeCmd(t, fmt.Sprintf("z%d m", t.z-2)) // move up & down so that the gear does not slip ;-)
 		writeCmd(t, fmt.Sprintf("z%d m", t.z))
 	}
 	for t.z > z {
 		t.z -= 5                               // tartget 0.5mm up
-		moveXySimple(t, t.x, t.y)              // compensate x drift
+		moveXySimple(t, t.x, t.y, 1)           // compensate x drift
 		writeCmd(t, fmt.Sprintf("z%d m", t.z)) // move 0.5mm up
 	}
 
@@ -514,11 +527,12 @@ func removeCount(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 }
 
 // Like removeCount() but add some point to favourize points close to model
-func removeCountFavClose(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
+func removeCountFavClose(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) (rmCount, favCount int32) {
 
-	res := removeCount(ss, rmc, w, h, cx, cy, r)
-	if res < 0 {
-		return res
+	rmCount = removeCount(ss, rmc, w, h, cx, cy, r)
+    favCount = rmCount
+	if rmCount < 0 {
+		return
 	}
 
 	modelNearby := false
@@ -539,18 +553,18 @@ func removeCountFavClose(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) 
 	}
 
 	if modelNearby {
-		res *= 1
+		favCount *= 1
 	}
 
 	//fmt.Printf("res=%d nearby=%d\n", res, removedNearby)
 	//7 * (r + 1) - removedNearby
-
-	return (7 * (r + 1) * res) / (removedNearby + 1)
+    favCount = (7 * (r + 1) * favCount) / (removedNearby + 1)
+	return
 }
 
 // Line from x,y to target tX,tY. Moves until model part is not removed
 // or target is reached. Returns new coordinates
-func doLine(ss *sdl.Surface, rmc [][]int32, x, y, tX, tY, w, h, r int32, draw, rmMaterial bool) (int32, int32) {
+func doLine(ss *sdl.Surface, rmc [][]int32, x, y, tX, tY, w, h, r int32, color uint32, draw, rmMaterial bool) (int32, int32) {
 
 	// Bresenham
 	var cx int32 = x
@@ -581,7 +595,7 @@ func doLine(ss *sdl.Surface, rmc [][]int32, x, y, tX, tY, w, h, r int32, draw, r
 
 	for {
 		if draw {
-			sdlSet(cx, cy, ColDebug, ss)
+			sdlSet(cx, cy, color, ss)
 		} else if removeCount(ss, rmc, w, h, cx, cy, r) < 0 {
 			return cx, cy
 		}
@@ -606,7 +620,7 @@ func doLine(ss *sdl.Surface, rmc [][]int32, x, y, tX, tY, w, h, r int32, draw, r
 }
 
 func drawLine(ss *sdl.Surface, rmc [][]int32, x, y, tX, tY int32) {
-	doLine(ss, rmc, x, y, tX, tY, -1, -1, 0, true, false)
+	doLine(ss, rmc, x, y, tX, tY, -1, -1, 0, ColDebug, true, false)
 }
 
 // Is count (in given dir) best?
@@ -872,7 +886,7 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, cX, cY, w, h, r int3
 			x, y = x-1, y-1
 		}
 		//fmt.Printf("cX=%d cY=%d tX=%d tY=%d x=%d y=%d\n", cX, cY, tX, tY, x, y)
-		moveXy(tc, x, y)
+		moveXy(tc, x, y, removeCount(ss, rmc, w, h, x, y, r))
 		removeMaterial(ss, rmc, w, h, x, y, r)
 		sdlSet(x, y, ColDebug, ss)
 		ss.Flip()
@@ -928,7 +942,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		if !removed {
 			fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
 			moveZ(tc, 0)
-			x, y = moveXy(tc, tX, tY)
+			x, y = moveXy(tc, tX, tY, 0)
 			moveZ(tc, z)
 			//fmt.Scanln()
 		}
@@ -939,37 +953,37 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		ss.Flip()
 
 		for {
-			countN := removeCountFavClose(ss, rmc, w, h, x, y-1, r)
-			countS := removeCountFavClose(ss, rmc, w, h, x, y+1, r)
-			countE := removeCountFavClose(ss, rmc, w, h, x+1, y, r)
-			countW := removeCountFavClose(ss, rmc, w, h, x-1, y, r)
+			countN, favN := removeCountFavClose(ss, rmc, w, h, x, y-1, r)
+			countS, favS := removeCountFavClose(ss, rmc, w, h, x, y+1, r)
+			countE, favE := removeCountFavClose(ss, rmc, w, h, x+1, y, r)
+			countW, favW := removeCountFavClose(ss, rmc, w, h, x-1, y, r)
 
-			countNE := removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
-			countSE := removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
-			countSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
-			countNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
+			countNE, favNE := removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
+			countSE, favSE := removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
+			countSW, favSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
+			countNW, favNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
 
-			countN *= 2
-			countS *= 2
+			favN *= 2
+			favS *= 2
 
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
-			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
-				x, y = moveXy(tc, x, y-1)
-			} else if bestDir(countS, countN, countE, countW, countNE, countSE, countSW, countNW) {
-				x, y = moveXy(tc, x, y+1)
-			} else if bestDir(countE, countN, countS, countW, countNE, countSE, countSW, countNW) {
-				x, y = moveXy(tc, x+1, y)
-			} else if bestDir(countW, countN, countE, countS, countNE, countSE, countSW, countNW) {
-				x, y = moveXy(tc, x-1, y)
-			} else if bestDir(countNE, countN, countS, countE, countW, countSE, countSW, countNW) {
-				x, y = moveXy(tc, x+1, y-1)
-			} else if bestDir(countSE, countN, countS, countE, countW, countNE, countSW, countNW) {
-				x, y = moveXy(tc, x+1, y+1)
-			} else if bestDir(countSW, countN, countS, countE, countW, countNE, countSE, countNW) {
-				x, y = moveXy(tc, x-1, y+1)
-			} else if bestDir(countNW, countN, countS, countE, countW, countNE, countSE, countSW) {
-				x, y = moveXy(tc, x-1, y-1)
+			if bestDir(favN, favS, favE, favW, favNE, favSE, favSW, favNW) {
+				x, y = moveXy(tc, x, y-1, countN)
+			} else if bestDir(favS, favN, favE, favW, favNE, favSE, favSW, favNW) {
+				x, y = moveXy(tc, x, y+1, countS)
+			} else if bestDir(favE, favN, favS, favW, favNE, favSE, favSW, favNW) {
+				x, y = moveXy(tc, x+1, y, countE)
+			} else if bestDir(favW, favN, favE, favS, favNE, favSE, favSW, favNW) {
+				x, y = moveXy(tc, x-1, y, countW)
+			} else if bestDir(favNE, favN, favS, favE, favW, favSE, favSW, favNW) {
+				x, y = moveXy(tc, x+1, y-1, countNE)
+			} else if bestDir(favSE, favN, favS, favE, favW, favNE, favSW, favNW) {
+				x, y = moveXy(tc, x+1, y+1, countSE)
+			} else if bestDir(favSW, favN, favS, favE, favW, favNE, favSE, favNW) {
+				x, y = moveXy(tc, x-1, y+1, countSW)
+			} else if bestDir(favNW, favN, favS, favE, favW, favNE, favSE, favSW) {
+				x, y = moveXy(tc, x-1, y-1, countNW)
 			} else {
 				//fmt.Printf("no good dir %d %d %d %d %d %d %d %d\n", countN, countS, countE, countW, countNE, countSE, countSW, countNW)
 				break
@@ -981,7 +995,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	}
 
 	moveZ(tc, 0)
-	x, y = moveXy(tc, 0, 0)
+	x, y = moveXy(tc, 0, 0, 0)
 
 	fmt.Printf("done at z=%d!\n", z)
 }
@@ -998,6 +1012,8 @@ func drawTrajectory(txtFile string, r int32) {
 	ss := sdlInit(w, h)            // sdl surface - with radius+1 border
 	sdlFill(ss, w, h, ColMaterial) // we have all material in the begining then we remove the parts so that just model is left
 
+    removingMaterial := true
+    
 	// Cache for removeCount()
 	rmc := makeRmc(w, h)
 
@@ -1041,14 +1057,23 @@ func drawTrajectory(txtFile string, r int32) {
 					//fmt.Scanln()
 
 					if inRect(x, y, w, h) && inRect(tx, ty, w, h) {
-						drawLine(ss, rmc, x, y, tx, ty)
-						doLine(ss, rmc, x, y, tx, ty, w, h, r, false, true)
+                        fmt.Printf("removingMaterial %t\n", removingMaterial)
+
+						//drawLine(ss, rmc, x, y, tx, ty)
+                        color := ColBlue
+                        if removingMaterial {
+                            color = ColGreen
+                        }
+						doLine(ss, rmc, x, y, tx, ty, w, h, r, color, false, true)
+                        doLine(ss, rmc, x, y, tx, ty, w, h, r, color, true, false)
 						ss.Flip()
 						trajLen += max(abs32(x-tx), abs32(y-ty))
 					}
 					x, y, z = tx, ty, tz
 				case 'c':
 					x, y, z = tx, ty, tz
+                case 'v':
+                    removingMaterial = (arg != 0)
 				}
 			}
 		}
@@ -1074,7 +1099,7 @@ func main() {
 
 	var zStep = 5   // z step is 1mm
 	var r int32 = 18 // the case is designed to be milled with 4mm driller, but i have just 3.6mm
-	tco := Tco{0, 0, 0, 0, 0, 0, 0, 0, os.Stderr}
+	tco := Tco{0, 0, 0, 0, 0, 0, 0, 0, 1, os.Stderr}
 	tc := &tco
 
 	for i := 1; i < len(os.Args); i++ {
