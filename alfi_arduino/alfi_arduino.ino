@@ -397,11 +397,11 @@ void setup()
     currDriftX = 0;
     lastDrift = -1;
 
-    delayX = sdelayX = 4600;
-    tdelayX = 4400;
+    delayX = sdelayX = 5000;
+    tdelayX = 4800;
 
     sdelayY = 3800;
-    tdelayY = 4000;
+    tdelayY = 3200;
     delayY = 14000;    // we will probe limit during first revolution
 
     delayZ = sdelayZ = 12000;

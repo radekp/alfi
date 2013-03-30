@@ -1072,7 +1072,7 @@ func main() {
 		return
 	}
 
-	var zStep = 10   // z step is 1mm
+	var zStep = 5   // z step is 1mm
 	var r int32 = 18 // the case is designed to be milled with 4mm driller, but i have just 3.6mm
 	tco := Tco{0, 0, 0, 0, 0, 0, 0, 0, os.Stderr}
 	tc := &tco
