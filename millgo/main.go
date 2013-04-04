@@ -1057,8 +1057,6 @@ func drawTrajectory(txtFile string, r int32) {
 					//fmt.Scanln()
 
 					if inRect(x, y, w, h) && inRect(tx, ty, w, h) {
-                        fmt.Printf("removingMaterial %t\n", removingMaterial)
-
 						//drawLine(ss, rmc, x, y, tx, ty)
                         color := ColBlue
                         if removingMaterial {

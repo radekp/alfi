@@ -65,6 +65,8 @@ int32 lastAxis2;
 int limitsY[80];                // limit values on y axis, 80 steps are for 360 degree turn
 int32 lastOkY;                  // 
 
+int32 rmCount;                  // are we removing material?
+
 int32 getDriftX(int32 z)
 {
     int32 i;
@@ -106,9 +108,12 @@ void zOff()
     digitalWrite(13, LOW);
 }
 
-int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis)
+int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis, bool slow)
 {
     delayMicroseconds(delayUs);
+    if(slow) {
+        delayMicroseconds(delayUs);
+    }
 
     if (axis != 0 && lastAxis != 0) {
         delayX = sdelayX;
@@ -131,7 +136,7 @@ int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis)
 }
 
 // One step to x
-void moveX()
+void moveX(bool slow)
 {
     int32 r = (cx + 0x1000000) % 8; // 0x1000000 to handle negative values
 
@@ -174,7 +179,7 @@ void moveX()
         digitalWrite(3, HIGH);
         break;                  // 53
     }
-    delayX = delayAndCheckLimit(delayX, tdelayX, 0);
+    delayX = delayAndCheckLimit(delayX, tdelayX, 0, slow);
 }
 
 // One step to y
@@ -221,7 +226,7 @@ void moveY()
         digitalWrite(8, HIGH);
         break;                  // 68
     }
-    delayY = delayAndCheckLimit(delayY, tdelayY, 1);
+    delayY = delayAndCheckLimit(delayY, tdelayY, 1, false);
 }
 
 void safeMoveY()
@@ -310,7 +315,7 @@ void moveZ()
         digitalWrite(13, HIGH);
         break;                  // 11 13
     }
-    delayZ = delayAndCheckLimit(delayZ, tdelayZ, 2);
+    delayZ = delayAndCheckLimit(delayZ, tdelayZ, 2, false);
 
     currDriftX = getDriftX(cz);
 }
@@ -337,8 +342,9 @@ void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
     for (;;) {
         // move to x0,y0
         if (cx != x0) {
+            bool slow = rmCount && (cx < x1);
             cx = x0;
-            moveX();
+            moveX(slow);
         }
         if (cy != y0) {
             cy = y0;
@@ -358,6 +364,30 @@ void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
             y0 = y0 + sy;
         }
     }
+}
+
+void setupDelays()
+{
+    if(rmCount) {
+        delayX = sdelayX = 5000;
+        tdelayX = 4800;
+
+        sdelayY = 3800;
+        tdelayY = 3200;
+    }
+    else {
+        delayX = sdelayX = 4000;
+        tdelayX = 3200;
+
+        delayY = sdelayY = 3600;
+        tdelayY = 2600;
+    }
+
+    delayZ = sdelayZ = 12000;
+    tdelayZ = 8000;
+
+    delayStep = 50;
+
 }
 
 void setup()
@@ -397,17 +427,10 @@ void setup()
     currDriftX = 0;
     lastDrift = -1;
 
-    delayX = sdelayX = 5000;
-    tdelayX = 4800;
-
-    sdelayY = 3800;
-    tdelayY = 3200;
+    rmCount = 1;
+    setupDelays();
     delayY = 14000;    // we will probe limit during first revolution
 
-    delayZ = sdelayZ = 12000;
-    tdelayZ = 8000;
-
-    delayStep = 50;
     lastAxis = lastAxis2 = -1;
 
     for (int i = 0; i < 80; i++) {
@@ -565,6 +588,8 @@ void loop()
         tdelayZ = arg;
     } else if (cmd == 'p') {
         delayStep = arg;
+    } else if (cmd == 'v') {
+        rmCount = arg;
     } else {
         Serial.print("error: unknown command ");
         Serial.println(cmd);
