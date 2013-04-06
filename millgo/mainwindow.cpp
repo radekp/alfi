@@ -577,7 +577,10 @@ void MainWindow::mill()
 
 void MainWindow::on_bMill_clicked()
 {
-    mill();
+    if(ui->cbDriftSet->isChecked())
+        mill();
+    else
+        QMessageBox::critical(this, "milling", "set drift first");
 }
 
 void MainWindow::on_cbPreview_toggled(bool checked)
@@ -598,6 +601,7 @@ void MainWindow::on_bDriftx_clicked()
         QStringList xz = list.at(i).split(',');
         sendCmd("z" + xz.at(0) + " x" + xz.at(1) + " r" + QString::number(i), true);
     }
+    ui->cbDriftSet->setChecked(true);
 }
 
 void MainWindow::on_bDriftxAdd_clicked()

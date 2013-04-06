@@ -112,7 +112,7 @@ int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis, bool slow)
 {
     delayMicroseconds(delayUs);
     if(slow) {
-        delayMicroseconds(delayUs);
+        //delayMicroseconds(delayUs);
     }
 
     if (axis != 0 && lastAxis != 0) {
