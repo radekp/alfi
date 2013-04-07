@@ -98,7 +98,7 @@ func moveXySimple(t *Tco, x, y, r, rmCount int32) (int32, int32) {
 	}
 
 	// Inform about material remove
-	if (rmCount < r) != (t.lastRmCount >= r) {
+	if (rmCount < r) != (t.lastRmCount < r) {
         if rmCount < r {
             writeCmd(t, "v0");
         } else {
@@ -269,7 +269,7 @@ func sdlFill(surface *sdl.Surface, w, h int32, color uint32) {
 	var x, y int32
 	for x = 0; x < w; x++ {
 		for y = 0; y < h; y++ {
-			sdlSet(x, y, color, surface)
+			sdlSet2(x, y, color, surface)
 		}
 	}
 }
@@ -995,7 +995,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	}
 
 	moveZ(tc, 0, r)
-	x, y = moveXy(tc, 0, 0, r, 0)
+	x, y = moveXy(tc, w-r/2, 0, r, 0)
 
 	fmt.Printf("done at z=%d!\n", z)
 }
@@ -1050,6 +1050,11 @@ func drawTrajectory(txtFile string, r int32) {
 					ty = arg
 				case 'z':
 					tz = arg
+					if z != tz {
+                        //fmt.Scanln()
+                        fmt.Printf("z=%d tz=%d\n", z, tz)
+                        sdlFill(ss, w, h, ColMaterial)
+                    }
 				case 'm':
 					//tX, tY := x + (109 * (tar[0] - pos[0])) / 1250, y + (109 * (tar[1] - pos[1])) / 1250
 
@@ -1072,7 +1077,6 @@ func drawTrajectory(txtFile string, r int32) {
 					x, y, z = tx, ty, tz
                 case 'v':
                     removingMaterial = (arg != 0)
-                    fmt.Scanln()
 				}
 			}
 		}
