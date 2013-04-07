@@ -78,7 +78,7 @@ func writeCmd(t *Tco, cmd string) {
 }
 
 // Move stepper motor from A to B (in pixel coordinates, 1pixel=0.1mm)
-func moveXySimple(t *Tco, x, y, rmCount int32) (int32, int32) {
+func moveXySimple(t *Tco, x, y, r, rmCount int32) (int32, int32) {
 
 	// Stepper motor steps: 5000 steps = 43.6 mm
 	//newMx, newMy := (1250 * x) / 109, (1250 * y ) / 109           //  //newMx, newMy := (5000 * bX) / 436, (5000 * bY ) / 436
@@ -98,8 +98,8 @@ func moveXySimple(t *Tco, x, y, rmCount int32) (int32, int32) {
 	}
 
 	// Inform about material remove
-	if (rmCount == 0) != (t.lastRmCount == 0) {
-        if rmCount == 0 {
+	if (rmCount < r) != (t.lastRmCount >= r) {
+        if rmCount < r {
             writeCmd(t, "v0");
         } else {
             writeCmd(t, "v1");
@@ -129,10 +129,10 @@ func moveXySimple(t *Tco, x, y, rmCount int32) (int32, int32) {
 }
 
 // Aggregate move
-func moveXy(t *Tco, x, y, rmCount int32) (int32, int32) {
+func moveXy(t *Tco, x, y, r, rmCount int32) (int32, int32) {
 
     if (rmCount == 0) != (t.lastRmCount == 0) {
-        return moveXySimple(t, x, y, rmCount)
+        return moveXySimple(t, x, y, r, rmCount)
     }
 
 	x1, y1 := t.tx-t.x, t.ty-t.y
@@ -143,8 +143,8 @@ func moveXy(t *Tco, x, y, rmCount int32) (int32, int32) {
 		return x, y
 	}
 
-	moveXySimple(t, t.tx, t.ty, rmCount)
-	return moveXySimple(t, x, y, rmCount)
+	moveXySimple(t, t.tx, t.ty, r, rmCount)
+	return moveXySimple(t, x, y, r, rmCount)
 }
 
 // Move up or down to z
@@ -153,10 +153,10 @@ func moveXy(t *Tco, x, y, rmCount int32) (int32, int32) {
 // 24         = x
 //
 // driftX = 24 steps
-func moveZ(t *Tco, z int32) {
+func moveZ(t *Tco, z, r int32) {
 
 	// Finish pending aggregate moves
-	moveXySimple(t, t.tx, t.ty, t.lastRmCount)
+	moveXySimple(t, t.tx, t.ty, r, t.lastRmCount)
 
 	// Always flush pending XY moves so that output is more readable
 	flushCmd(t)
@@ -165,14 +165,14 @@ func moveZ(t *Tco, z int32) {
 
 	for t.z < z {
 		t.z += 5                                 // target 0.5mm down
-		moveXySimple(t, t.x, t.y, 1)             // compensate x drift
+		moveXySimple(t, t.x, t.y, r, 1)             // compensate x drift
 		writeCmd(t, fmt.Sprintf("z%d m", t.z))   // move 0.5mm down
 		writeCmd(t, fmt.Sprintf("z%d m", t.z-2)) // move up & down so that the gear does not slip ;-)
 		writeCmd(t, fmt.Sprintf("z%d m", t.z))
 	}
 	for t.z > z {
 		t.z -= 5                               // tartget 0.5mm up
-		moveXySimple(t, t.x, t.y, 1)           // compensate x drift
+		moveXySimple(t, t.x, t.y, r, 1)           // compensate x drift
 		writeCmd(t, fmt.Sprintf("z%d m", t.z)) // move 0.5mm up
 	}
 
@@ -886,7 +886,7 @@ func findAndRemove(ss *sdl.Surface, tc *Tco, rmc [][]int32, cX, cY, w, h, r int3
 			x, y = x-1, y-1
 		}
 		//fmt.Printf("cX=%d cY=%d tX=%d tY=%d x=%d y=%d\n", cX, cY, tX, tY, x, y)
-		moveXy(tc, x, y, removeCount(ss, rmc, w, h, x, y, r))
+		moveXy(tc, x, y, r, removeCount(ss, rmc, w, h, x, y, r))
 		removeMaterial(ss, rmc, w, h, x, y, r)
 		sdlSet(x, y, ColDebug, ss)
 		ss.Flip()
@@ -920,9 +920,9 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	// Cache for removeCount()
 	rmc := makeRmc(w, h)
 
-	var x, y int32 = 0, 0
+	x, y := w - r/2, int32(0)
 
-	moveZ(tc, z)
+	moveZ(tc, z, r)
 
 	// Start searching point to remove in where is material - this will fastly
 	// remove most of the material. Then we switch to visited mode - this will
@@ -941,9 +941,9 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 
 		if !removed {
 			fmt.Printf("move up, to %d,%d and down to continue\n", tX, tY)
-			moveZ(tc, 0)
-			x, y = moveXy(tc, tX, tY, 0)
-			moveZ(tc, z)
+			moveZ(tc, 0, r)
+			x, y = moveXy(tc, tX, tY, r, 0)
+			moveZ(tc, z, r)
 			//fmt.Scanln()
 		}
 
@@ -969,21 +969,21 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
 			if bestDir(favN, favS, favE, favW, favNE, favSE, favSW, favNW) {
-				x, y = moveXy(tc, x, y-1, countN)
+				x, y = moveXy(tc, x, y-1, r, countN)
 			} else if bestDir(favS, favN, favE, favW, favNE, favSE, favSW, favNW) {
-				x, y = moveXy(tc, x, y+1, countS)
+				x, y = moveXy(tc, x, y+1, r, countS)
 			} else if bestDir(favE, favN, favS, favW, favNE, favSE, favSW, favNW) {
-				x, y = moveXy(tc, x+1, y, countE)
+				x, y = moveXy(tc, x+1, y, r, countE)
 			} else if bestDir(favW, favN, favE, favS, favNE, favSE, favSW, favNW) {
-				x, y = moveXy(tc, x-1, y, countW)
+				x, y = moveXy(tc, x-1, y, r, countW)
 			} else if bestDir(favNE, favN, favS, favE, favW, favSE, favSW, favNW) {
-				x, y = moveXy(tc, x+1, y-1, countNE)
+				x, y = moveXy(tc, x+1, y-1, r, countNE)
 			} else if bestDir(favSE, favN, favS, favE, favW, favNE, favSW, favNW) {
-				x, y = moveXy(tc, x+1, y+1, countSE)
+				x, y = moveXy(tc, x+1, y+1, r, countSE)
 			} else if bestDir(favSW, favN, favS, favE, favW, favNE, favSE, favNW) {
-				x, y = moveXy(tc, x-1, y+1, countSW)
+				x, y = moveXy(tc, x-1, y+1, r, countSW)
 			} else if bestDir(favNW, favN, favS, favE, favW, favNE, favSE, favSW) {
-				x, y = moveXy(tc, x-1, y-1, countNW)
+				x, y = moveXy(tc, x-1, y-1, r, countNW)
 			} else {
 				//fmt.Printf("no good dir %d %d %d %d %d %d %d %d\n", countN, countS, countE, countW, countNE, countSE, countSW, countNW)
 				break
@@ -994,8 +994,8 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		}
 	}
 
-	moveZ(tc, 0)
-	x, y = moveXy(tc, 0, 0, 0)
+	moveZ(tc, 0, r)
+	x, y = moveXy(tc, 0, 0, r, 0)
 
 	fmt.Printf("done at z=%d!\n", z)
 }
@@ -1072,6 +1072,7 @@ func drawTrajectory(txtFile string, r int32) {
 					x, y, z = tx, ty, tz
                 case 'v':
                     removingMaterial = (arg != 0)
+                    fmt.Scanln()
 				}
 			}
 		}
