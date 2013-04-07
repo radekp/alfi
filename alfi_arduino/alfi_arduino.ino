@@ -71,6 +71,11 @@ int32 bufPos;
 int32 lastAxis;
 int32 lastAxis2;
 
+int32 currDirX;
+int32 currDirY;
+int32 lastDirX;
+int32 lastDirY;
+
 int limitsY[80];                // limit values on y axis, 80 steps are for 360 degree turn
 int32 lastOkY;                  // 
 
@@ -124,15 +129,15 @@ int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis, bool slow)
         delayMicroseconds(delayUs);
     }
 
-    if (axis != 0 && lastAxis != 0) {
+    if (axis != 0 && lastAxis != 0 && lastAxis2 != 0) {
         delayX = sdelayX;
         xOff();
     }
-    if (axis != 1 && lastAxis != 1) {
+    if (axis != 1 && lastAxis != 1 && lastAxis2 != 1) {
         delayY = sdelayY;
         yOff();
     }
-    if (axis != 2 && lastAxis != 2) {
+    if (axis != 2 && lastAxis != 2 && lastAxis2 != 2) {
         delayZ = sdelayZ;
         zOff();
     }
@@ -332,6 +337,15 @@ void moveZ()
 // draw line using Bresenham's line algorithm
 void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
 {
+    currDirX = x0 > x1;
+    currDirY = y0 > y1;
+    if(currDirX != lastDirX)
+        delayX = sdelayX;
+    if(currDirY != lastDirY)
+        delayY = sdelayY;
+    lastDirX = currDirX;
+    lastDirY = currDirY;
+
     int32 dx = abs(x1 - x0);
     int32 dy = abs(y1 - y0);
     int32 sx, sy;
