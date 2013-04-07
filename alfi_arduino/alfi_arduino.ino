@@ -19,6 +19,7 @@
 
 #define MAX_CMDS 128
 #define MAX_DRIFTS 64
+#define MAX_VELS 2
 
 #define int32 long
 
@@ -46,6 +47,14 @@ int32 delayX;                   // current delay on x
 int32 delayY;                   // current delay on y
 int32 delayZ;                   // current delay on z
 
+// Delays by velocity
+int32 sdelaysX[MAX_VELS];
+int32 tdelaysX[MAX_VELS];
+int32 sdelaysY[MAX_VELS];
+int32 tdelaysY[MAX_VELS];
+int32 sdelaysZ[MAX_VELS];
+int32 tdelaysZ[MAX_VELS];
+
 char cmd;                       // current command (a=axis, x,y,z=pos, r=driftx in current z, s=sdelayX, w=tdelayX, h=sdelayY, n=tdelayY, a=sdelayZ, q=tdelayZ, z=delay step, m=start motion, set current pos, q=queue start, e=execute queue)
 int32 arg;                      // argument for current commands
 
@@ -65,7 +74,7 @@ int32 lastAxis2;
 int limitsY[80];                // limit values on y axis, 80 steps are for 360 degree turn
 int32 lastOkY;                  // 
 
-int32 rmCount;                  // are we removing material?
+int32 vel;                      // velocity depending often whether we are removing material or not
 
 int32 getDriftX(int32 z)
 {
@@ -112,7 +121,7 @@ int32 delayAndCheckLimit(int32 delayUs, int32 tdelay, int32 axis, bool slow)
 {
     delayMicroseconds(delayUs);
     if(slow) {
-        //delayMicroseconds(delayUs);
+        delayMicroseconds(delayUs);
     }
 
     if (axis != 0 && lastAxis != 0) {
@@ -342,9 +351,9 @@ void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
     for (;;) {
         // move to x0,y0
         if (cx != x0) {
-            bool slow = rmCount && (cx < x1);
+            //bool slow = vel && (cx < x1);     // alfi didnt like move east on X
             cx = x0;
-            moveX(slow);
+            moveX(false);
         }
         if (cy != y0) {
             cy = y0;
@@ -366,9 +375,9 @@ void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
     }
 }
 
-void setupDelays()
+void setDelays()
 {
-    if(rmCount) {
+    if(vel) {
         delayX = sdelayX = 5000;
         tdelayX = 4800;
 
@@ -427,9 +436,15 @@ void setup()
     currDriftX = 0;
     lastDrift = -1;
 
-    rmCount = 1;
-    setupDelays();
-    delayY = 14000;    // we will probe limit during first revolution
+    vel = MAX_VELS - 1; // start with smallest velocity
+    for(int i = 0; i < MAX_VELS; i++)
+    {
+        sdelaysX[i] = sdelaysY[i] = sdelaysZ[i] = 8000;
+        tdelaysX[i] = tdelaysY[i] = tdelaysZ[i] = 8000;
+    }
+    delayStep = 50;
+    setDelays();
+    delayY = 14000;    // very slow to probe limit during first revolution
 
     lastAxis = lastAxis2 = -1;
 
@@ -574,22 +589,23 @@ void loop()
             driftsX[lastDrift] = tx;
             driftsZ[lastDrift] = tz;
         }
+    } else if (cmd == 'S') {
+        sdelayX = sdelaysX[vel] = arg;
     } else if (cmd == 's') {
-        sdelayX = arg;
-    } else if (cmd == 'w') {
-        tdelayX = arg;
+        tdelayX = tdelaysX[vel] = arg;
+    } else if (cmd == 'H') {
+        sdelayY = sdelaysY[vel] = arg;
     } else if (cmd == 'h') {
-        sdelayY = arg;
-    } else if (cmd == 'n') {
-        tdelayY = arg;
+        tdelayY = tdelaysY[vel] = arg;
+    } else if (cmd == 'A') {
+        sdelayZ = sdelaysZ[vel] = arg;
     } else if (cmd == 'a') {
-        sdelayZ = arg;
-    } else if (cmd == 'q') {
-        tdelayZ = arg;
+        tdelayZ = tdelaysZ[vel] = arg;
     } else if (cmd == 'p') {
         delayStep = arg;
     } else if (cmd == 'v') {
-        rmCount = arg;
+        vel = arg;
+        setDelays();
     } else {
         Serial.print("error: unknown command ");
         Serial.println(cmd);
