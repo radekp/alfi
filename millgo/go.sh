@@ -18,4 +18,6 @@ go run main.go\
          case8.png\
          case8.png\
          case9.png\
+         case9.png\
+         case9.png\
          case9.png     2> model.txt
