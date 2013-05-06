@@ -522,6 +522,22 @@ func removeCount(ss *sdl.Surface, rmc [][]int32, w, h, cx, cy, r int32) int32 {
 		count++
 	}
 
+	// Check if model is nearby
+	modelNearby := false
+    for x, y, okR := inRadiusBegin(cx, cy, r+1, w, h); okR; x, y, okR = inRadiusNext(x, y, cx, cy, r+1, w, h) {
+        if inRadius(x, y, cx, cy, r) {
+            continue // skip until just the circle outline
+        }
+        val := sdlGet(x, y, ss)
+        if (val & ColModel) != 0 { // nearby to to model
+            modelNearby = true
+            break
+        }
+    }
+    if !modelNearby {
+        count = 0
+    }
+	
 	rmc[cx][cy] = count
 	return count
 }
@@ -920,7 +936,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	// Cache for removeCount()
 	rmc := makeRmc(w, h)
 
-	x, y := w - r/2, int32(0)
+	x, y := int32(0), int32(0)
 
 	moveZ(tc, z, r)
 
@@ -953,36 +969,36 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 		ss.Flip()
 
 		for {
-			countN, favN := removeCountFavClose(ss, rmc, w, h, x, y-1, r)
-			countS, favS := removeCountFavClose(ss, rmc, w, h, x, y+1, r)
-			countE, favE := removeCountFavClose(ss, rmc, w, h, x+1, y, r)
-			countW, favW := removeCountFavClose(ss, rmc, w, h, x-1, y, r)
+			countN := removeCount(ss, rmc, w, h, x, y-1, r)
+			countS := removeCount(ss, rmc, w, h, x, y+1, r)
+			countE := removeCount(ss, rmc, w, h, x+1, y, r)
+			countW := removeCount(ss, rmc, w, h, x-1, y, r)
 
-			countNE, favNE := removeCountFavClose(ss, rmc, w, h, x+1, y-1, r)
-			countSE, favSE := removeCountFavClose(ss, rmc, w, h, x+1, y+1, r)
-			countSW, favSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
-			countNW, favNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
+			countNE := removeCount(ss, rmc, w, h, x+1, y-1, r)
+			countSE := removeCount(ss, rmc, w, h, x+1, y+1, r)
+			countSW := removeCount(ss, rmc, w, h, x-1, y+1, r)
+			countNW := removeCount(ss, rmc, w, h, x-1, y-1, r)
 
-			favN *= 2
-			favS *= 2
+			countN *= 2
+			countS *= 2
 
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 
-			if bestDir(favN, favS, favE, favW, favNE, favSE, favSW, favNW) {
+			if bestDir(countN, countS, countE, countW, countNE, countSE, countSW, countNW) {
 				x, y = moveXy(tc, x, y-1, r, countN)
-			} else if bestDir(favS, favN, favE, favW, favNE, favSE, favSW, favNW) {
+			} else if bestDir(countS, countN, countE, countW, countNE, countSE, countSW, countNW) {
 				x, y = moveXy(tc, x, y+1, r, countS)
-			} else if bestDir(favE, favN, favS, favW, favNE, favSE, favSW, favNW) {
+			} else if bestDir(countE, countN, countS, countW, countNE, countSE, countSW, countNW) {
 				x, y = moveXy(tc, x+1, y, r, countE)
-			} else if bestDir(favW, favN, favE, favS, favNE, favSE, favSW, favNW) {
+			} else if bestDir(countW, countN, countE, countS, countNE, countSE, countSW, countNW) {
 				x, y = moveXy(tc, x-1, y, r, countW)
-			} else if bestDir(favNE, favN, favS, favE, favW, favSE, favSW, favNW) {
+			} else if bestDir(countNE, countN, countS, countE, countW, countSE, countSW, countNW) {
 				x, y = moveXy(tc, x+1, y-1, r, countNE)
-			} else if bestDir(favSE, favN, favS, favE, favW, favNE, favSW, favNW) {
+			} else if bestDir(countSE, countN, countS, countE, countW, countNE, countSW, countNW) {
 				x, y = moveXy(tc, x+1, y+1, r, countSE)
-			} else if bestDir(favSW, favN, favS, favE, favW, favNE, favSE, favNW) {
+			} else if bestDir(countSW, countN, countS, countE, countW, countNE, countSE, countNW) {
 				x, y = moveXy(tc, x-1, y+1, r, countSW)
-			} else if bestDir(favNW, favN, favS, favE, favW, favNE, favSE, favSW) {
+			} else if bestDir(countNW, countN, countS, countE, countW, countNE, countSE, countSW) {
 				x, y = moveXy(tc, x-1, y-1, r, countNW)
 			} else {
 				//fmt.Printf("no good dir %d %d %d %d %d %d %d %d\n", countN, countS, countE, countW, countNE, countSE, countSW, countNW)
@@ -995,7 +1011,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	}
 
 	moveZ(tc, 0, r)
-	x, y = moveXy(tc, w-r/2, 0, r, 0)
+	x, y = moveXy(tc, 0, 0, r, 0)
 
 	fmt.Printf("done at z=%d!\n", z)
 }
@@ -1100,8 +1116,8 @@ func main() {
 		return
 	}
 
-	var zStep = 5   // z step is 1mm
-	var r int32 = 18 // the case is designed to be milled with 4mm driller, but i have just 3.6mm
+	var zStep = 3   // z step is 1mm
+	var r int32 = 5 // the case is designed to be milled with 4mm driller, but i have just 3.6mm
 	tco := Tco{0, 0, 0, 0, 0, 0, 0, 0, 1, os.Stderr}
 	tc := &tco
 
