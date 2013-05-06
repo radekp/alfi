@@ -920,7 +920,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	// Cache for removeCount()
 	rmc := makeRmc(w, h)
 
-	x, y := w - r/2, int32(0)
+	x, y := int32(0), int32(0)
 
 	moveZ(tc, z, r)
 
@@ -995,7 +995,7 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 	}
 
 	moveZ(tc, 0, r)
-	x, y = moveXy(tc, w-r/2, 0, r, 0)
+	x, y = moveXy(tc, 0, 0, r, 0)
 
 	fmt.Printf("done at z=%d!\n", z)
 }
@@ -1053,7 +1053,7 @@ func drawTrajectory(txtFile string, r int32) {
 					if z != tz {
                         //fmt.Scanln()
                         fmt.Printf("z=%d tz=%d\n", z, tz)
-                        sdlFill(ss, w, h, ColMaterial)
+                        //sdlFill(ss, w, h, ColMaterial)
                     }
 				case 'm':
 					//tX, tY := x + (109 * (tar[0] - pos[0])) / 1250, y + (109 * (tar[1] - pos[1])) / 1250
