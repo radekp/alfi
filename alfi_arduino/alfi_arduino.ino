@@ -371,7 +371,7 @@ void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
         }
         if (cy != y0) {
             cy = y0;
-            safeMoveY();
+            moveY();
         }
 
         if (x0 == x1 && y0 == y1) {
@@ -391,26 +391,15 @@ void drawLine(int32 x0, int32 y0, int32 x1, int32 y1)
 
 void setDelays()
 {
-    if(vel) {
-        delayX = sdelayX = 5000;
-        tdelayX = 4800;
+    delayX = sdelayX = sdelaysX[vel];
+    delayY = sdelayY = sdelaysY[vel];
+    delayZ = sdelayZ = sdelaysZ[vel];
 
-        sdelayY = 3800;
-        tdelayY = 3200;
-    }
-    else {
-        delayX = sdelayX = 4000;
-        tdelayX = 3200;
-
-        delayY = sdelayY = 3600;
-        tdelayY = 2600;
-    }
-
-    delayZ = sdelayZ = 12000;
-    tdelayZ = 8000;
+    tdelayX = tdelaysX[vel];
+    tdelayY = tdelaysY[vel];
+    tdelayZ = tdelaysZ[vel];
 
     delayStep = 50;
-
 }
 
 void setup()
