@@ -674,7 +674,7 @@ func setDist(ss *sdl.Surface, rmc [][]int32, dist [][][]int32, aX, aY, bX, bY, d
 
 	dA := dist[aX][aY]
 	_, best := bestDist(dA)
-	best += 4 * r * r
+	best += 4 * (r + 1) * (r + 1)
 
 	if best >= currBestDist { // we alredy have better distance (smaller is better)
 		return
