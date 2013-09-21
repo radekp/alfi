@@ -963,8 +963,11 @@ func computeTrajectory(pngFile string, tc *Tco, z, r int32) {
 			countSW, favSW := removeCountFavClose(ss, rmc, w, h, x-1, y+1, r)
 			countNW, favNW := removeCountFavClose(ss, rmc, w, h, x-1, y-1, r)
 
-			favN *= 2
-			favS *= 2
+			if countS > r {
+                favS *= 2
+            } else {
+                favN *= 2
+            }
 
 			//fmt.Printf("== x=%d y=%d\n", x, y)
 

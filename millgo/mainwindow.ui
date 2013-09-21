@@ -27,7 +27,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>v1 H5000 h3600 S5000 s4000 A5000 a2200 v0 H5000 h3200 S5000 s3600 A5000 a2200</string>
+     <string>v1 H5000 h3600 S5000 s4000 A5000 a4000 v0 H5000 h3200 S5000 s3600 A5000 a4000</string>
     </property>
    </widget>
    <widget class="QTextBrowser" name="tbSerial">

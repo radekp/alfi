@@ -20,4 +20,5 @@ go run main.go\
          case9.png\
          case9.png\
          case9.png\
+         case9.png\
          case9.png     2> model.txt
